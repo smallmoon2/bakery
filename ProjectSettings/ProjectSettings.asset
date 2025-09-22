@@ -691,7 +691,7 @@ PlayerSettings:
   XboxOneOverrideIdentityPublisher: 
   vrEditorSettings: {}
   cloudServicesEnabled:
-    Collab: 1
+    Collab: 0
     UNet: 1
   luminIcon:
     m_Name: 
@@ -707,10 +707,10 @@ PlayerSettings:
   apiCompatibilityLevel: 6
   activeInputHandler: 0
   windowsGamepadBackendHint: 0
-  cloudProjectId: e4fee09e-5330-42f3-9fd9-872ce3f6a22c
+  cloudProjectId: 837c9bb9-3c24-4095-b40b-6ef6e11656b7
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: bakery work
+  projectName: bakery
   organizationId: a4sjhsjh
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
