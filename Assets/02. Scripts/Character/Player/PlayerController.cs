@@ -4,10 +4,14 @@ public class PlayerController : MonoBehaviour
 {
     [Header("Input")]
     private VariableJoystick joystick; // Joystick Pack
+    private PlayerObjectController playerObjectController;
 
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 3.5f;
     [SerializeField] private float turnSpeed = 15f;
+
+    [Header("Refs")]
+    [SerializeField] private Transform handStackPoint; // HandStack Point 자식 오브젝트 참조
 
     private Animator anim;
     private CharacterController cc;
@@ -19,7 +23,7 @@ public class PlayerController : MonoBehaviour
     {
         init();
     }
-    
+
     void init()
     {
         joystick = FindObjectOfType<VariableJoystick>();
@@ -50,7 +54,6 @@ public class PlayerController : MonoBehaviour
         cc.Move(horizontal * Time.deltaTime);
     }
 
-    // 요청하신 형태로 교체
     private void Turn()
     {
         if (moveInput != Vector3.zero)
@@ -63,16 +66,14 @@ public class PlayerController : MonoBehaviour
 
     private void UpdateAnimator()
     {
-        float targetValue = 0f;
-
-        if (moveInput != Vector3.zero) // 이동 키를 누를 경우
-        {
-            targetValue = 1;
-        }
-
+        // --- 이동 애니메이션 ---
+        float targetValue = (moveInput != Vector3.zero) ? 1f : 0f;
         float animValue = anim.GetFloat("Move");
         animValue = Mathf.Lerp(animValue, targetValue, 10f * Time.deltaTime);
         anim.SetFloat("Move", animValue);
 
+        // --- 스택 애니메이션 ---
+        bool hasStack = handStackPoint && handStackPoint.childCount > 0;
+        anim.SetBool("Stack", hasStack);
     }
 }

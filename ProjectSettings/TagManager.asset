@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Basket
   - Oven
+  - Table
   layers:
   - Default
   - TransparentFX

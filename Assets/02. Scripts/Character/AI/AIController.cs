@@ -10,6 +10,10 @@ public class AIController : MonoBehaviour
     [Header("Refs")]
     public NavMeshAgent agent;
     public Animator anim;
+    [SerializeField] private BreadBasket Basket;
+
+    [Header("Stack Check")]
+    [SerializeField] private Transform handStackPoint;
 
     [Header("Targets (Arrays)")]
     public Transform[] pickPoints;   // 줍기 후보들
@@ -144,6 +148,10 @@ public class AIController : MonoBehaviour
         float animValue = anim.GetFloat("Move");
         animValue = Mathf.Lerp(animValue, targetMoveParam, 10f * Time.deltaTime);
         anim.SetFloat("Move", animValue);
+
+        // ---  HandStackPoint 상태에 따른 Stack Bool 제어 ---
+        bool hasStack = handStackPoint && handStackPoint.childCount > 0;
+        anim.SetBool("Stack", hasStack);
     }
 
     // ---- 상태 변경 공용 진입 ----
