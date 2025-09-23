@@ -6,27 +6,38 @@ public class BreadStack : MonoBehaviour
 {
     [Header("Refs")]
     [SerializeField] private BreadSpawner spawner;
+    [SerializeField] private BreadBasket Basket;
     [SerializeField] private Transform stackPoint;
-    [SerializeField] private Transform PrestackPoint; // ★ 추가: 프리스택 위치 기준
+    [SerializeField] private Transform PrestackPoint;
 
     [Header("Stack Settings")]
-    [SerializeField] private float stepHeight = 0.25f; // 한 층 높이
-    [SerializeField] private float moveSpeed = 10f;     // 정렬 이동 속도
-    [SerializeField] private float rotLerp = 8f;       // 회전 보간 속도
+    [SerializeField] private float stepHeight = 0.25f;
+    [SerializeField] private float moveSpeed = 10f;
+    [SerializeField] private float rotLerp = 8f;
     [SerializeField] private bool makeKinematicOnStack = true;
 
-    [Header("Pickup Gate")]
-    [SerializeField] private string pickupTag = "Pickup";
+    [Header("PickUp / DropOff Gate")]
+    [SerializeField] private string pickUpTag = "Oven";
+    [SerializeField] private string DropOffTag = "Basket";
     private bool canStack;
+    private bool canDrop;
 
     [Header("Stack Flow")]
-    [SerializeField] private float stackDelay = 0.1f;         // 1초 간격으로 하나씩
+    [SerializeField] private float stackDelay = 0.1f;
+    [SerializeField] private int handMaxCount = 8;
     private Stack<GameObject> stacking = new Stack<GameObject>();
+
+    // bread currently moving to basket: <bread, target slot>
+    private readonly Dictionary<GameObject, Transform> dropping = new Dictionary<GameObject, Transform>();
     private Coroutine stackRoutine;
+
+    // cooldown so that only one drop starts at a time
+    private float nextDropTime = 0f;
 
     private void Awake()
     {
         if (!spawner) spawner = FindObjectOfType<BreadSpawner>();
+        if (!Basket) Basket = FindObjectOfType<BreadBasket>();
     }
 
     private void OnEnable()
@@ -40,8 +51,7 @@ public class BreadStack : MonoBehaviour
         stackRoutine = null;
     }
 
-    // 1초마다: Pickup 안에 있으면 spawner.breads에서 하나를 꺼내
-    // stackPoint의 자식으로 붙이고, PrestackPoint 기준 위치로 순간이동 → 스택에 Push
+    // pick from spawner to hand (stacking) at stackDelay interval while inside pickup area
     private IEnumerator StackLoop()
     {
         var wait = new WaitForSeconds(stackDelay);
@@ -50,10 +60,8 @@ public class BreadStack : MonoBehaviour
         {
             if (spawner && canStack)
             {
-                // 유령 참조 제거
                 spawner.breads.RemoveAll(b => b == null);
 
-                // 첫 유효 빵 하나 선택 & 리스트에서 제거
                 GameObject picked = null;
                 for (int i = 0; i < spawner.breads.Count; i++)
                 {
@@ -70,24 +78,17 @@ public class BreadStack : MonoBehaviour
                 {
                     var t = picked.transform;
 
-                    // 부모를 stackPoint로 (월드좌표 유지)
+                    // parent to stackPoint (keep world position)
                     t.SetParent(stackPoint, true);
 
-                    // 이 빵이 올라갈 "최종 슬롯" (푸시 전이므로 현재 개수가 슬롯)
+                    // prestack pose offset by slot height
                     int slot = stacking.Count;
-
-                    // ★ PrestackPoint 기준 프리스택 월드 위치 계산
-                    //    (PrestackPoint가 없으면 stackPoint 기준으로 폴백)
                     Vector3 basePos = (PrestackPoint ? PrestackPoint.position : stackPoint.position);
                     Vector3 prestackWorldPos = basePos + Vector3.up * (stepHeight * slot);
 
-                    // 즉시 순간이동
                     t.position = prestackWorldPos;
 
-                    // 물리 영향 제거(옵션)
                     EnsureKinematic(picked);
-
-                    // 스택 등록 (최신 = top)
                     stacking.Push(picked);
                 }
             }
@@ -98,38 +99,47 @@ public class BreadStack : MonoBehaviour
 
     private void Update()
     {
-        if (!stackPoint) return;
-
-        // bottom(오래된) → top(최근) 순으로 정렬
-        var arr = stacking.ToArray(); // top-first 배열 반환
-        int n = arr.Length;
-        int slot = 0;
-
-        for (int i = n - 1; i >= 0; i--)
+        if (stackPoint)
         {
-            var go = arr[i];
-            if (!go) continue;
+            // arrange breads in hand at stackPoint
+            var arr = stacking.ToArray(); // top first
+            int n = arr.Length;
+            int slot = 0;
 
-            Vector3 targetPos = stackPoint.position + Vector3.up * (stepHeight * slot);
-            MoveStack(go, targetPos);
-            slot++;
+            for (int i = n - 1; i >= 0; i--)
+            {
+                var go = arr[i];
+                if (!go) continue;
+
+                Vector3 targetPos = stackPoint.position + Vector3.up * (stepHeight * slot);
+                MoveStack(go, targetPos);
+                slot++;
+            }
         }
+
+        // drop to basket: one at a time, with delay between starts
+        if (canDrop && dropping.Count == 0 && Time.time >= nextDropTime)
+        {
+            TryDropOneToBasket();
+            nextDropTime = Time.time + stackDelay;
+        }
+
+        // process smooth movement of the bread that is dropping
+        ProcessDropping();
     }
 
-    // ── 트리거 감지(플레이어 쪽에 Trigger Collider 필요) ──
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag(pickupTag))
-            canStack = true;
+        if (other.CompareTag(pickUpTag)) canStack = true;
+        if (other.CompareTag(DropOffTag)) canDrop = true;
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (other.CompareTag(pickupTag))
-            canStack = false;
+        if (other.CompareTag(pickUpTag)) canStack = false;
+        if (other.CompareTag(DropOffTag)) canDrop = false;
     }
 
-    // --- Helpers ---
     private void EnsureKinematic(GameObject go)
     {
         if (go.TryGetComponent<Rigidbody>(out var rb) && makeKinematicOnStack)
@@ -146,5 +156,79 @@ public class BreadStack : MonoBehaviour
         var t = go.transform;
         t.position = Vector3.MoveTowards(t.position, targetPos, moveSpeed * Time.deltaTime);
         t.rotation = Quaternion.Slerp(t.rotation, stackPoint.rotation, rotLerp * Time.deltaTime);
+    }
+
+    // pop from hand, teleport to prestack, then smoothly move to basket slot
+    private void TryDropOneToBasket()
+    {
+        if (!Basket) return;
+
+        var slots = Basket.Rslots;                 // IReadOnlyList<Transform>
+        if (slots == null || slots.Count == 0) return;
+
+        // only one at a time
+        if (dropping.Count > 0) return;
+
+        int nextIndex = Basket.breads.Count;     // next slot index
+        int maxCapacity = Mathf.Min(slots.Count, 8);
+        if (nextIndex >= maxCapacity) return;
+        if (stacking.Count == 0) return;
+
+        var bread = stacking.Pop();
+        if (!bread) return;
+
+        var slotT = slots[nextIndex];
+        if (slotT == null) return;
+
+        var t = bread.transform;
+
+        // teleport to prestack start position
+        Vector3 startPos = PrestackPoint ? PrestackPoint.position
+                                         : (stackPoint ? stackPoint.position : t.position);
+        t.position = startPos;
+
+        // parent to target slot but keep world pose so it can lerp in
+        t.SetParent(slotT, worldPositionStays: true);
+
+        EnsureKinematic(bread);
+
+        // begin smooth move toward slot
+        dropping[bread] = slotT;
+    }
+
+    private void ProcessDropping()
+    {
+        if (dropping.Count == 0) return;
+
+        var finalize = new List<GameObject>();
+
+        foreach (var kv in dropping)
+        {
+            var go = kv.Key;
+            var slotT = kv.Value;
+            if (!go || !slotT) { finalize.Add(go); continue; }
+
+            var t = go.transform;
+            t.position = Vector3.MoveTowards(t.position, slotT.position, moveSpeed * Time.deltaTime);
+            t.rotation = Quaternion.Slerp(t.rotation, slotT.rotation, rotLerp * Time.deltaTime);
+
+            if ((t.position - slotT.position).sqrMagnitude < 0.0001f)
+                finalize.Add(go);
+        }
+
+        foreach (var go in finalize)
+        {
+            if (go && dropping.TryGetValue(go, out var slotT) && slotT)
+            {
+                var t = go.transform;
+                t.SetParent(slotT, worldPositionStays: false);
+                t.localPosition = Vector3.zero;
+                t.localRotation = Quaternion.identity;
+
+                // push into basket stack on arrival
+                Basket.breads.Push(go);
+            }
+            dropping.Remove(go);
+        }
     }
 }

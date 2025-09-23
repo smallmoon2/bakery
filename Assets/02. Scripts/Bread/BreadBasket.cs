@@ -4,15 +4,13 @@ using UnityEngine;
 
 public class BreadBasket : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+    [Header("Stack Config")]
+    [SerializeField] private Transform[] slots;         // 씬에 미리 배치한 자리(아래→위 or 좌→우 순서)
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    // 스택 (top = 마지막으로 넣은 빵)
+    public IReadOnlyList<Transform> Rslots => slots; // 읽기 전용 노출
+
+    public Stack<GameObject> breads = new Stack<GameObject>();
+
+
 }
