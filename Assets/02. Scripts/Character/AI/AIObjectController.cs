@@ -5,6 +5,9 @@ using UnityEngine;
 public class AIObjectController : MonoBehaviour
 {
     [Header("Refs (Pickup / Drop)")]
+
+    [SerializeField] private AIController aIController;
+
     [SerializeField] private BreadBasket pickupBasket;   // 여기서 pickUp
     [SerializeField] private BreadTable dropTable;       // 여기로 dropOff
 
@@ -30,31 +33,44 @@ public class AIObjectController : MonoBehaviour
     private bool canStack;
     private bool canDrop;
     private float nextMove = 0f;
-
+    public bool PickupFinish;
     private void Update()
     {
-        // 픽업: 바스켓 안 + 간격 + 손 제한
-        if (canStack && Time.time >= nextMove && stacking.Count < maxStack)
+        if (aIController.readyForNext)
         {
-            TryPickupOneFromBasket();
-            nextMove = Time.time + delay;
+            // 현재 AI가 들 수 있는 최대 빵 수 = AIController.breadCount
+            int maxCarry = Mathf.Min(maxStack, aIController.breadCount);
+
+            // 픽업: 바스켓 안 + 간격 + 손 제한
+            if (canStack && Time.time >= nextMove && stacking.Count < maxCarry)
+            {
+                TryPickupOneFromBasket();
+                nextMove = Time.time + delay;
+            }
+
+            // 드롭: 테이블 안 + 현재 드롭 없음 + 간격
+            if (canDrop && dropping.Count == 0 && Time.time >= nextMove)
+            {
+                TryDropOneToTable();
+                nextMove = Time.time + delay;
+            }
+
+            ProcessDropping();           // 드롭 중 이동 처리
+            MoveAllInHandToSlots();      // 손에 든 것들 정렬
+
+            if (stacking.Count == aIController.breadCount)
+            {
+                StartCoroutine(SetPickupFinishWithDelay(0.5f));
+            }
         }
 
-        // 드롭: 테이블 안 + 현재 드롭 없음 + 간격
-        if (canDrop && dropping.Count == 0 && Time.time >= nextMove)
-        {
-            TryDropOneToTable();
-            nextMove = Time.time + delay;
-        }
 
-        ProcessDropping();           // 드롭 중 이동 처리
-        MoveAllInHandToSlots();      // 손에 든 것들 정렬
     }
 
     // ---------- PICKUP ----------
     private void TryPickupOneFromBasket()
     {
-        if (!pickupBasket || !stackPoint) return;
+        if (!pickupBasket || !stackPoint || pickupBasket.playerdropOff) return;
 
         // Basket에서 하나 꺼내오기 (Stack<GameObject> 가정)
         if (pickupBasket.breads == null || pickupBasket.breads.Count == 0) return;
@@ -197,5 +213,10 @@ public class AIObjectController : MonoBehaviour
             rb.useGravity = false;
             rb.isKinematic = true;
         }
+    }
+    private IEnumerator SetPickupFinishWithDelay(float delayTime)
+    {
+        yield return new WaitForSeconds(delayTime);
+        PickupFinish = true;
     }
 }

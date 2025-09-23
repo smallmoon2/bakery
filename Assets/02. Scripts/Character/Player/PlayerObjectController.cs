@@ -188,7 +188,8 @@ public class PlayerObjectController : MonoBehaviour
                 t.localPosition = Vector3.zero;
                 t.localRotation = Quaternion.identity;
 
-                Basket.breads.Push(go);
+                //Basket.breads.Push(go);
+                Basket.AddBread(go);
             }
             dropping.Remove(go);
         }

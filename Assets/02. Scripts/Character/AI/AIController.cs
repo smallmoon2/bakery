@@ -7,13 +7,16 @@ public class AIController : MonoBehaviour
 {
     public enum State { Pick, Pack, Table, Eat, Exit, hall }
 
+
     [Header("Refs")]
     public NavMeshAgent agent;
     public Animator anim;
     [SerializeField] private BreadBasket Basket;
-
+    [SerializeField] private AIObjectController aIObjectController;
     [Header("Stack Check")]
     [SerializeField] private Transform handStackPoint;
+
+
 
     [Header("Targets (Arrays)")]
     public Transform[] pickPoints;   // 줍기 후보들
@@ -60,6 +63,7 @@ public class AIController : MonoBehaviour
     bool prePhase;          // 현재 상태에서 경유지로 이동 중인지
     bool waitInit;          // FaceThenWaitNext 타이머 초기화 여부
     private State _lastState; // 외부에서 state 직접 변경 감지용
+    public int breadCount;
 
     // 도착+바라봄+대기 완료 신호
     public bool readyForNext { get; private set; }
@@ -74,12 +78,15 @@ public class AIController : MonoBehaviour
     void Start()
     {
         Reset();
+        breadCount = Random.Range(1, 4);
+
         Go(State.Pick);
         _lastState = state; // 초기 상태 동기화
     }
 
     void Update()
     {
+        //Debug.Log(readyForNext);
         // 외부에서 state를 직접 바꿨을 때도 항상 진입 처리(+ ready 플래그 리셋)
         if (state != _lastState)
         {
@@ -96,6 +103,11 @@ public class AIController : MonoBehaviour
                     var p = GetPoint(pickPoints, pickIdx);
                     MoveViaPreThen(pre, p);
                     if (!prePhase && Arrived()) FaceThenWaitNext(pickLook ?? p, pickTime, State.Pack);
+
+                    if (aIObjectController.PickupFinish)
+                    {
+                        state = State.Pack;
+                    }
                     break;
                 }
             case State.Pack:
