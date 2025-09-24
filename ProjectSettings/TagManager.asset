@@ -8,6 +8,7 @@ TagManager:
   - Oven
   - Table
   - PlayerTable
+  - Money
   layers:
   - Default
   - TransparentFX

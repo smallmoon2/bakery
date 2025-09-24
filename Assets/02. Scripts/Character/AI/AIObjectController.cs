@@ -5,7 +5,6 @@ using UnityEngine;
 public class AIObjectController : MonoBehaviour
 {
     [Header("Refs (Pickup / Drop)")]
-
     [SerializeField] private AIController aIController;
 
     [SerializeField] private GameObject BagPrefab;
@@ -15,6 +14,8 @@ public class AIObjectController : MonoBehaviour
     [SerializeField] private Transform stackPoint;
     [SerializeField] private Transform prestackPoint;
     [SerializeField] private Transform PaperBagPoint;
+
+    [SerializeField] private Transform moneyTablePoint;
 
     [Header("Tags")]
     [SerializeField] private string pickUpTag = "Basket";   // 픽업 존
@@ -29,8 +30,7 @@ public class AIObjectController : MonoBehaviour
     [Header("Limits")]
     [SerializeField] private int maxStack = 8;
 
-    private Stack<GameObject> stacking = new Stack<GameObject>();                    // 손에 든 것들
-    private readonly Dictionary<GameObject, Transform> dropping = new Dictionary<GameObject, Transform>(); // 드롭 이동 중
+    private Stack<GameObject> stacking = new Stack<GameObject>(); // 손에 든 것들
 
     private GameObject currentBag;
     private Coroutine bagCo;
@@ -39,104 +39,103 @@ public class AIObjectController : MonoBehaviour
     private bool canDrop;
     private float nextMove = 0f;
     public bool PickupFinish;
+    public bool BagFinish;
+    public bool DropFinish;   // ★ 드롭 완료 플래그 추가
+
+    // 동시 진행 방지
+    private bool isPicking = false;
+    private bool isDropping = false;
+
     private void Update()
     {
-        if (aIController.readyForNext)
+        if (!aIController || !aIController.readyForNext) return;
+
+        int maxCarry = Mathf.Min(maxStack, aIController.breadCount);
+
+        if (canStack && Time.time >= nextMove && stacking.Count < maxCarry && !isPicking)
         {
-            // 현재 AI가 들 수 있는 최대 빵 수 = AIController.breadCount
-            int maxCarry = Mathf.Min(maxStack, aIController.breadCount);
-
-            // 픽업: 바스켓 안 + 간격 + 손 제한
-            if (canStack && Time.time >= nextMove && stacking.Count < maxCarry)
-            {
-                TryPickupOneFromBasket();
-                nextMove = Time.time + delay;
-            }
-
-            // 드롭: 테이블 안 + 현재 드롭 없음 + 간격
-            if (canDrop && dropping.Count == 0 && Time.time >= nextMove && GameManager.Instance.ai.isCalculated)
-            {
-                TryDropOneToTable();
-                nextMove = Time.time + delay;
-            }
-
-            ProcessDropping();           // 드롭 중 이동 처리
-            MoveAllInHandToSlots();      // 손에 든 것들 정렬
-
-            // 픽업끝남
-            if (stacking.Count == aIController.breadCount)
-            {
-                StartCoroutine(SetPickupFinishWithDelay(0.5f));
-            }
+            StartPickupOne();
+            nextMove = Time.time + delay;
         }
 
+        if (canDrop && Time.time >= nextMove && stacking.Count > 0 && !isDropping &&
+            GameManager.Instance && GameManager.Instance.ai && GameManager.Instance.ai.isCalculated)
+        {
+            StartDropOne();
+            nextMove = Time.time + delay;
+        }
 
+        if (stacking.Count == aIController.breadCount && !isPicking)
+        {
+            StartCoroutine(SetPickupFinishWithDelay(0.5f));
+        }
     }
 
     // ---------- PICKUP ----------
-    private void TryPickupOneFromBasket()
+    private void StartPickupOne()
     {
         if (!pickupBasket || !stackPoint || pickupBasket.playerdropOff) return;
-
-        // Basket에서 하나 꺼내오기 (Stack<GameObject> 가정)
         if (pickupBasket.breads == null || pickupBasket.breads.Count == 0) return;
 
-        GameObject picked = null;
-        // 최상단에서 Pop
-        picked = pickupBasket.breads.Pop();
+        var picked = pickupBasket.breads.Pop();
         if (!picked) return;
 
         int slotIndex = stacking.Count;
-
-        // 부모를 stackPoint로 (월드좌표 유지)
-        var t = picked.transform;
-        t.SetParent(stackPoint, true);
-
-        // 프리스택 → 손으로 자연스럽게 정렬
-        Vector3 basePos = prestackPoint ? prestackPoint.position : stackPoint.position;
-        Vector3 prePos = basePos + Vector3.up * (stepHeight * slotIndex);
-        t.position = prePos;
-
-        EnsureKinematic(picked);
-        stacking.Push(picked);
+        StartCoroutine(PickupOneRoutine(picked, slotIndex));
     }
 
-    // 손에 든 것들 정렬(항상 부드럽게 붙이기)
-    private void MoveAllInHandToSlots()
+    private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
     {
-        if (!stackPoint) return;
+        isPicking = true;
 
-        var arr = stacking.ToArray(); // top-first
-        int n = arr.Length;
-        int slot = 0;
+        EnsureKinematic(picked);
+        var t = picked.transform;
 
-        for (int i = n - 1; i >= 0; i--)
+        Vector3 basePos = prestackPoint ? prestackPoint.position : (stackPoint ? stackPoint.position : t.position);
+        Vector3 prePos = basePos + Vector3.up * (stepHeight * slotIndex);
+
+        Vector3 handPos = (stackPoint ? stackPoint.position : t.position) + Vector3.up * (stepHeight * slotIndex);
+        Quaternion handRot = stackPoint ? stackPoint.rotation : t.rotation;
+
+        while ((t.position - prePos).sqrMagnitude > 0.0001f)
         {
-            var go = arr[i];
-            if (!go) continue;
-
-            Vector3 targetPos = stackPoint.position + Vector3.up * (stepHeight * slot);
-            var t = go.transform;
-
-            t.position = Vector3.MoveTowards(t.position, targetPos, stackMoveSpeed * Time.deltaTime);
-            t.rotation = Quaternion.Slerp(t.rotation, stackPoint.rotation, rotLerp * Time.deltaTime);
-            slot++;
+            t.position = Vector3.MoveTowards(t.position, prePos, stackMoveSpeed * Time.deltaTime);
+            if (stackPoint) t.rotation = Quaternion.Slerp(t.rotation, stackPoint.rotation, rotLerp * Time.deltaTime);
+            yield return null;
         }
+
+        while ((t.position - handPos).sqrMagnitude > 0.0001f)
+        {
+            t.position = Vector3.MoveTowards(t.position, handPos, stackMoveSpeed * Time.deltaTime);
+            t.rotation = Quaternion.Slerp(t.rotation, handRot, rotLerp * Time.deltaTime);
+            yield return null;
+        }
+
+        if (stackPoint)
+        {
+            t.SetParent(stackPoint, true);
+            t.position = handPos;
+            t.rotation = handRot;
+        }
+
+        stacking.Push(picked);
+        isPicking = false;
     }
 
     // ---------- DROPOFF ----------
-    private void TryDropOneToTable()
+    private void StartDropOne()
     {
-        if (!dropTable) return;
+        // 가방 로직은 한 번만 스타트
+        if (bagCo == null)
+            bagCo = StartCoroutine(Baglogic());
 
-        var slots = dropTable.Rslots; // IReadOnlyList<Transform> 가정
+        if (!dropTable || stacking.Count == 0) return;
+
+        var slots = dropTable.Rslots;
         if (slots == null || slots.Count == 0) return;
 
-        if (dropping.Count > 0) return;     // 한 번에 하나만
-        if (stacking.Count == 0) return;
-
-        int nextIndex = dropTable.breads.Count;                  // 테이블에 이미 놓인 개수
-        int maxCapacity = Mathf.Min(slots.Count, 8);             // 안전 상한선
+        int nextIndex = dropTable.breads.Count;
+        int maxCapacity = Mathf.Min(slots.Count, 8);
         if (nextIndex >= maxCapacity) return;
 
         var bread = stacking.Pop();
@@ -145,56 +144,49 @@ public class AIObjectController : MonoBehaviour
         var slotT = slots[nextIndex];
         if (!slotT) return;
 
-        var t = bread.transform;
-
-        // 드롭 시작 위치(프리스택 → 슬롯)
-        Vector3 startPos = prestackPoint ? prestackPoint.position
-                                         : (stackPoint ? stackPoint.position : t.position);
-        t.position = startPos;
-
-        // 이동 동안 슬롯을 부모로(월드 좌표 유지)
-        t.SetParent(slotT, true);
-        EnsureKinematic(bread);
-        if (bagCo == null)
-            bagCo = StartCoroutine(Baglogic());
-        // 이동 처리 테이블에 등록
-        dropping[bread] = slotT;
+        StartCoroutine(DropOneRoutine(bread, slotT, nextIndex));
     }
 
-    private void ProcessDropping()
+    private IEnumerator DropOneRoutine(GameObject bread, Transform slotT, int slotIndex)
     {
-        if (dropping.Count == 0) return;
+        isDropping = true;
 
-        var finalize = new List<GameObject>();
+        EnsureKinematic(bread);
+        var t = bread.transform;
 
-        foreach (var kv in dropping)
+        Vector3 fromPos = t.position;
+
+        Vector3 basePos = prestackPoint ? prestackPoint.position : fromPos;
+        Vector3 prePos = basePos + Vector3.up * (stepHeight * slotIndex);
+
+        while ((t.position - prePos).sqrMagnitude > 0.0001f)
         {
-            var go = kv.Key;
-            var slotT = kv.Value;
-            if (!go || !slotT) { finalize.Add(go); continue; }
-
-            var t = go.transform;
-            t.position = Vector3.MoveTowards(t.position, slotT.position, stackMoveSpeed * Time.deltaTime);
-            t.rotation = Quaternion.Slerp(t.rotation, slotT.rotation, rotLerp * Time.deltaTime);
-
-            if ((t.position - slotT.position).sqrMagnitude < 0.0001f)
-                finalize.Add(go);
+            t.position = Vector3.MoveTowards(t.position, prePos, stackMoveSpeed * Time.deltaTime);
+            if (stackPoint) t.rotation = Quaternion.Slerp(t.rotation, stackPoint.rotation, rotLerp * Time.deltaTime);
+            yield return null;
         }
 
-        foreach (var go in finalize)
-        {
-            if (go && dropping.TryGetValue(go, out var slotT) && slotT)
-            {
-                var t = go.transform;
-                t.SetParent(slotT, false);          // 로컬로 스냅
-                t.localPosition = Vector3.zero;
-                t.localRotation = Quaternion.identity;
+        Vector3 tablePos = slotT.position;
+        Quaternion tableRot = slotT.rotation;
 
-                // 테이블 스택에 쌓기
-                dropTable.breads.Push(go);
-            }
-            dropping.Remove(go);
+        t.SetParent(slotT, true);
+
+        while ((t.position - tablePos).sqrMagnitude > 0.0001f)
+        {
+            t.position = Vector3.MoveTowards(t.position, tablePos, stackMoveSpeed * Time.deltaTime);
+            t.rotation = Quaternion.Slerp(t.rotation, tableRot, rotLerp * Time.deltaTime);
+            yield return null;
         }
+
+        t.SetParent(slotT, false);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+
+        dropTable.breads.Push(bread);
+
+        Destroy(bread);
+
+        isDropping = false;
     }
 
     // ---------- TRIGGERS ----------
@@ -221,11 +213,14 @@ public class AIObjectController : MonoBehaviour
             rb.isKinematic = true;
         }
     }
+
     private IEnumerator SetPickupFinishWithDelay(float delayTime)
     {
         yield return new WaitForSeconds(delayTime);
         PickupFinish = true;
     }
+
+    // ---------- BAG ----------
     private IEnumerator Baglogic()
     {
         if (!BagPrefab || !PaperBagPoint)
@@ -235,29 +230,111 @@ public class AIObjectController : MonoBehaviour
             yield break;
         }
 
-        // 이미 생성된 가방이 없으면 생성
+        // 없으면 생성 (PaperBagPoint에서 시작)
         if (currentBag == null)
-        {
             currentBag = Instantiate(BagPrefab, PaperBagPoint.position, PaperBagPoint.rotation, PaperBagPoint);
-        }
 
-        // 2초 대기
-        yield return new WaitForSeconds(2f);
+        // 1.2초 대기
+        yield return new WaitForSeconds(1.2f);
 
-        // 애니메이터 찾아서 트리거 발동
+        // 애니 트리거
         var anim = currentBag.GetComponent<Animator>();
         if (!anim) anim = currentBag.GetComponentInChildren<Animator>();
-
         if (anim)
         {
-            anim.ResetTrigger("BagClose"); // 안전
+            anim.ResetTrigger("BagClose");
             anim.SetTrigger("BagClose");
+
+            // 애니메이션 종료 대기 (타임아웃 안전장치 포함)
+            yield return StartCoroutine(WaitForAnimatorFinishOrTimeout(anim, 0, 0.98f, 3f));
         }
         else
         {
-            Debug.LogWarning("[AIObjectController] BagPrefab에서 Animator를 찾지 못했습니다.");
+            Debug.LogWarning("[AIObjectController] BagPrefab에서 Animator를 찾지 못했습니다. 애니 대기 없이 진행합니다.");
+            yield return new WaitForSeconds(0.5f);
         }
+
+        // ★ 애니 끝나면 가방을 prestackPoint → stackPoint(슬롯 높이)로 이동
+        yield return StartCoroutine(MoveBagToStackRoutine());
 
         bagCo = null;
     }
+
+    // 애니메이션 종료 대기 (상태 전환 끝 + normalizedTime 기준, 타임아웃 포함)
+    private IEnumerator WaitForAnimatorFinishOrTimeout(Animator anim, int layer, float minNormalizedTime, float timeout)
+    {
+        float t = 0f;
+
+        // 전환 중이면 전환 종료 대기
+        while (anim.IsInTransition(layer))
+        {
+            if ((t += Time.deltaTime) >= timeout) yield break;
+            yield return null;
+        }
+
+        var info = anim.GetCurrentAnimatorStateInfo(layer);
+        int stateHash = info.shortNameHash;
+
+        // 같은 상태가 minNormalizedTime 지날 때까지
+        while (info.shortNameHash == stateHash && info.normalizedTime < minNormalizedTime)
+        {
+            if ((t += Time.deltaTime) >= timeout) yield break;
+            yield return null;
+            info = anim.GetCurrentAnimatorStateInfo(layer);
+        }
+    }
+
+    // 가방을 prestack → stackPoint(현재 손 스택 높이)로 이동
+    private IEnumerator MoveBagToStackRoutine()
+    {
+        if (!currentBag)
+            yield break;
+
+        if (!stackPoint)
+        {
+            Debug.LogWarning("[AIObjectController] stackPoint 미할당: 가방 이동을 중단합니다.");
+            yield break;
+        }
+
+        // 손에 들려있는 빵 갯수만큼 위로 쌓는 동일한 규칙 사용
+        int slotIndex = stacking.Count;
+
+        EnsureKinematic(currentBag);
+        var t = currentBag.transform;
+
+        // 목표들 계산
+        Vector3 basePos = prestackPoint ? prestackPoint.position : stackPoint.position;
+        Vector3 prePos = basePos + Vector3.up * (stepHeight * slotIndex);
+
+        Vector3 handPos = stackPoint.position + Vector3.up * (stepHeight * slotIndex);
+        Quaternion handRot = stackPoint.rotation * Quaternion.Euler(0f, 90f, 0f);
+
+        // 현재 위치 → 프리스택
+        while ((t.position - prePos).sqrMagnitude > 0.0001f)
+        {
+            t.position = Vector3.MoveTowards(t.position, prePos, stackMoveSpeed * Time.deltaTime);
+            t.rotation = Quaternion.Slerp(t.rotation, handRot, rotLerp * Time.deltaTime);
+            yield return null;
+        }
+
+        // 프리스택 → 손 슬롯
+        while ((t.position - handPos).sqrMagnitude > 0.0001f)
+        {
+            t.position = Vector3.MoveTowards(t.position, handPos, stackMoveSpeed * Time.deltaTime);
+            t.rotation = Quaternion.Slerp(t.rotation, handRot, rotLerp * Time.deltaTime);
+            yield return null;
+        }
+
+        // 손에 붙이기
+        t.SetParent(stackPoint, true);
+        t.position = handPos;
+        t.rotation = handRot;
+
+        
+        GameManager.Instance.ai.Moneycreate(moneyTablePoint,aIController.breadCount * 5);
+
+        BagFinish = true;
+    }
+
 }
+

@@ -116,6 +116,11 @@ public class AIController : MonoBehaviour
                     var p = GetPoint(packPoints, packIdx);
                     MoveViaPreThen(pre, p);
                     if (!prePhase && Arrived()) FaceThenWaitNext(packLook ?? p, packTime, State.Table);
+
+                    if (aIObjectController.BagFinish)
+                    {
+                        state = State.Exit;
+                    }
                     break;
                 }
             case State.hall:
