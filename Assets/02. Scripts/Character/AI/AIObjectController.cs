@@ -8,11 +8,13 @@ public class AIObjectController : MonoBehaviour
 
     [SerializeField] private AIController aIController;
 
+    [SerializeField] private GameObject BagPrefab;
     [SerializeField] private BreadBasket pickupBasket;   // 여기서 pickUp
     [SerializeField] private BreadTable dropTable;       // 여기로 dropOff
 
     [SerializeField] private Transform stackPoint;
     [SerializeField] private Transform prestackPoint;
+    [SerializeField] private Transform PaperBagPoint;
 
     [Header("Tags")]
     [SerializeField] private string pickUpTag = "Basket";   // 픽업 존
@@ -29,6 +31,9 @@ public class AIObjectController : MonoBehaviour
 
     private Stack<GameObject> stacking = new Stack<GameObject>();                    // 손에 든 것들
     private readonly Dictionary<GameObject, Transform> dropping = new Dictionary<GameObject, Transform>(); // 드롭 이동 중
+
+    private GameObject currentBag;
+    private Coroutine bagCo;
 
     private bool canStack;
     private bool canDrop;
@@ -49,7 +54,7 @@ public class AIObjectController : MonoBehaviour
             }
 
             // 드롭: 테이블 안 + 현재 드롭 없음 + 간격
-            if (canDrop && dropping.Count == 0 && Time.time >= nextMove)
+            if (canDrop && dropping.Count == 0 && Time.time >= nextMove && GameManager.Instance.ai.isCalculated)
             {
                 TryDropOneToTable();
                 nextMove = Time.time + delay;
@@ -58,6 +63,7 @@ public class AIObjectController : MonoBehaviour
             ProcessDropping();           // 드롭 중 이동 처리
             MoveAllInHandToSlots();      // 손에 든 것들 정렬
 
+            // 픽업끝남
             if (stacking.Count == aIController.breadCount)
             {
                 StartCoroutine(SetPickupFinishWithDelay(0.5f));
@@ -149,7 +155,8 @@ public class AIObjectController : MonoBehaviour
         // 이동 동안 슬롯을 부모로(월드 좌표 유지)
         t.SetParent(slotT, true);
         EnsureKinematic(bread);
-
+        if (bagCo == null)
+            bagCo = StartCoroutine(Baglogic());
         // 이동 처리 테이블에 등록
         dropping[bread] = slotT;
     }
@@ -218,5 +225,39 @@ public class AIObjectController : MonoBehaviour
     {
         yield return new WaitForSeconds(delayTime);
         PickupFinish = true;
+    }
+    private IEnumerator Baglogic()
+    {
+        if (!BagPrefab || !PaperBagPoint)
+        {
+            Debug.LogWarning("[AIObjectController] BagPrefab 또는 PaperBagPoint 미할당");
+            bagCo = null;
+            yield break;
+        }
+
+        // 이미 생성된 가방이 없으면 생성
+        if (currentBag == null)
+        {
+            currentBag = Instantiate(BagPrefab, PaperBagPoint.position, PaperBagPoint.rotation, PaperBagPoint);
+        }
+
+        // 2초 대기
+        yield return new WaitForSeconds(2f);
+
+        // 애니메이터 찾아서 트리거 발동
+        var anim = currentBag.GetComponent<Animator>();
+        if (!anim) anim = currentBag.GetComponentInChildren<Animator>();
+
+        if (anim)
+        {
+            anim.ResetTrigger("BagClose"); // 안전
+            anim.SetTrigger("BagClose");
+        }
+        else
+        {
+            Debug.LogWarning("[AIObjectController] BagPrefab에서 Animator를 찾지 못했습니다.");
+        }
+
+        bagCo = null;
     }
 }

@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class AIManager : MonoBehaviour
 {
+    public bool isCalculated;
+
 
     public List<bool> Pick = new List<bool>();
 
