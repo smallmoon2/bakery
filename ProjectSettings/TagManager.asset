@@ -9,6 +9,7 @@ TagManager:
   - Table
   - PlayerTable
   - Money
+  - MoneyUse
   layers:
   - Default
   - TransparentFX

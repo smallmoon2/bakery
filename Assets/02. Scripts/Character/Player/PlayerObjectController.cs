@@ -1,25 +1,35 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 public class PlayerObjectController : MonoBehaviour
 {
-    [Header("Refs")]
-    [SerializeField] private BreadSpawner spawner;
-    [SerializeField] private BreadBasket Basket;
-
-    [SerializeField] private Transform stackPoint;
-    [SerializeField] private Transform prestackPoint;
-
+    // ===================== MONEY =====================
     [Header("Money")]
     [SerializeField] private Transform MoneyPoint;
     [SerializeField] private Transform preMoneyPoint;
-
-    [Header("Tags")]
-    [SerializeField] private string pickUpTag = "Oven";
-    [SerializeField] private string dropOffTag = "Basket";
     [SerializeField] private string moneyTag = "Money";
 
+    // ===================== MONEY USE =====================
+    [Header("Money Use")]
+    [SerializeField] private Transform MoneyUsePoint;
+    [SerializeField] private Transform preMoneyUsePoint;
+    [SerializeField] private string moneyUseTag = "MoneyUse";
+
+    // ===================== OVEN (Bread Pick) =====================
+    [Header("Oven")]
+    [SerializeField] private BreadSpawner spawner;     // 오븐에서 꺼낼 빵 소스
+    [SerializeField] private Transform stackPoint;     // 손에 쌓일 기준점
+    [SerializeField] private Transform prestackPoint;  // 손으로 오기 전 경유점
+    [SerializeField] private string pickUpTag = "Oven";
+
+    // ===================== BASKET (Bread Drop) =====================
+    [Header("Basket")]
+    [SerializeField] private BreadBasket Basket;
+    [SerializeField] private string dropOffTag = "Basket";
+
+    // ===================== COMMON MOTION/LIMITS =====================
     [Header("Motion")]
     [SerializeField] private float stepHeight = 0.25f;   // 층 간격
     [SerializeField] private float stackMoveSpeed = 8f;  // 이동 속도
@@ -29,7 +39,10 @@ public class PlayerObjectController : MonoBehaviour
     [Header("Limits")]
     [SerializeField] private int maxStack = 8;
 
+    // ===================== STATE =====================
     private Stack<GameObject> stacking = new Stack<GameObject>();
+
+    private OpenLock openLock;
 
     private bool canStack;
     private bool canDrop;
@@ -42,6 +55,9 @@ public class PlayerObjectController : MonoBehaviour
 
     // 머니 버스트 실행 중복 방지
     private bool isMoneyBurstRunning = false;
+
+    private bool canMoneyUse;                  // MoneyUse 존 안에 있을 때
+    private bool isMoneyUseBurstRunning = false;
 
     private void Update()
     {
@@ -64,6 +80,13 @@ public class PlayerObjectController : MonoBehaviour
         {
             StartCoroutine(MoneyBurstRoutine());
         }
+
+        if (canMoneyUse && !isMoneyUseBurstRunning)
+        {
+            StartCoroutine(MoneyUseBurstRoutine());
+        }
+
+
     }
 
     // ===================== BREAD: PICKUP =====================
@@ -219,8 +242,8 @@ public class PlayerObjectController : MonoBehaviour
             for (int i = list.Count - 1; i >= 0; i--)
             {
                 var go = list[i];
-                list.RemoveAt(i);          // pop
-                GameManager.Instance.myMoney++; // 기존 증가 로직 유지(필요 없으면 제거)
+                list.RemoveAt(i);                 // pop
+                GameManager.Instance.myMoney++;   // 필요 없으면 제거
                 if (go != null)
                 {
                     target = go;
@@ -291,7 +314,107 @@ public class PlayerObjectController : MonoBehaviour
         t.localPosition = Vector3.zero;
         t.localRotation = Quaternion.identity;
 
-        Destroy(t.gameObject);
+        // 필요 시 제거/숨김 처리
+        money.SetActive(false);
+        // 또는 t.gameObject.SetActive(false);
+    }
+    private IEnumerator MoneyUseBurstRoutine()
+    {
+        isMoneyUseBurstRunning = true;
+        const float interval = 0.05f;
+
+        // 안전 체크
+        if (!MoneyPoint)
+        {
+            Debug.LogWarning("[PlayerObjectController] MoneyPoint 미할당");
+            isMoneyUseBurstRunning = false;
+            yield break;
+        }
+
+        while (canMoneyUse)
+        {
+            if (int.Parse(openLock.lockCounttext.text) > 0)
+            {
+                // MoneyPoint 밑에 자식(돈) 없으면 종료
+                if (MoneyPoint.childCount == 0) break;
+
+                // 끝(가장 마지막) 자식을 꺼냄
+                Transform child = MoneyPoint.GetChild(MoneyPoint.childCount - 1);
+                GameObject money = child.gameObject;
+
+                if (money != null)
+                {
+                    // 부모 분리(월드로 꺼내서 이동)
+                    child.SetParent(null, true);
+
+                    // 비활성 상태였다면 활성화
+                    if (!money.activeSelf) money.SetActive(true);
+
+
+
+                    openLock.decreaseLockCount();
+                    GameManager.Instance.myMoney--;
+                    StartCoroutine(UseMoneyMoveRoutine(money));
+
+
+                    // 병렬 이동 시작
+
+                }
+            }
+            
+
+            yield return new WaitForSeconds(interval);
+        }
+
+        isMoneyUseBurstRunning = false;
+    }
+    private IEnumerator UseMoneyMoveRoutine(GameObject money)
+    {
+        EnsureKinematic(money);
+        var t = money.transform;
+        const float EPS = 0.0001f;
+
+        if (!MoneyUsePoint)
+        {
+            Debug.LogWarning("[PlayerObjectController] MoneyUsePoint 미할당");
+            yield break;
+        }
+
+        // 1) 현재 → preMoneyUsePoint(있으면) / 없으면 MoneyUsePoint
+        while (true)
+        {
+            Vector3 prePos = preMoneyUsePoint ? preMoneyUsePoint.position : MoneyUsePoint.position;
+            Quaternion preRot = MoneyUsePoint.rotation;
+
+            t.position = Vector3.MoveTowards(t.position, prePos, stackMoveSpeed * Time.deltaTime);
+            t.rotation = Quaternion.Slerp(t.rotation, preRot, rotLerp * Time.deltaTime);
+
+            if ((t.position - prePos).sqrMagnitude <= EPS) break;
+            yield return null;
+        }
+
+        // 2) pre → MoneyUsePoint(정밀 겹침)
+        while (true)
+        {
+            Vector3 targetPos = MoneyUsePoint.position;
+            Quaternion targetRot = MoneyUsePoint.rotation;
+
+            t.position = Vector3.MoveTowards(t.position, targetPos, stackMoveSpeed * Time.deltaTime);
+            t.rotation = Quaternion.Slerp(t.rotation, targetRot, rotLerp * Time.deltaTime);
+
+            if ((t.position - targetPos).sqrMagnitude <= EPS) break;
+            yield return null;
+        }
+
+        // 3) 부모/스냅(겹치기)
+        t.SetParent(MoneyUsePoint, false);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+
+
+        money.SetActive(false);
+        // ※ 여기서 실제 사용 처리가 필요하면(소모/카운트 차감 등) 추가:
+        // ex) GameManager.Instance.myMoney--, 이펙트/사운드, 풀에 반납 등
     }
 
     // ===================== TRIGGERS =====================
@@ -299,14 +422,28 @@ public class PlayerObjectController : MonoBehaviour
     {
         if (other.CompareTag(pickUpTag)) canStack = true;
         if (other.CompareTag(dropOffTag)) canDrop = true;
-        if (other.CompareTag(moneyTag)) canMoney = true;
+        if (other.CompareTag(moneyTag)) canMoney = true;       // "Money"
+        if (other.CompareTag(moneyUseTag))
+        {
+            canMoneyUse = true;       // "MoneyUse"
+            var found = other.GetComponent<OpenLock>()
+         ?? other.GetComponentInParent<OpenLock>()
+         ?? other.GetComponentInChildren<OpenLock>();
+
+            if (found != null)
+            {
+                openLock = found;
+            }
+        }
+ 
     }
 
     private void OnTriggerExit(Collider other)
     {
         if (other.CompareTag(pickUpTag)) canStack = false;
         if (other.CompareTag(dropOffTag)) canDrop = false;
-        if (other.CompareTag(moneyTag)) canMoney = false;
+        if (other.CompareTag(moneyTag)) canMoney = false;      // "Money"
+        if (other.CompareTag(moneyUseTag)) canMoneyUse = false;      // "MoneyUse"
     }
 
     // ===================== UTIL =====================
