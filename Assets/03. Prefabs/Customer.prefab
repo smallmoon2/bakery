@@ -1,5 +1,100 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &426191109
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 426191110}
+  m_Layer: 6
+  m_Name: HandStack Point
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &426191110
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 426191109}
+  m_LocalRotation: {x: -0, y: 0.7071068, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 0.8, z: 0.6399999}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1686868883}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+--- !u!1 &1625362072
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1625362073}
+  m_Layer: 6
+  m_Name: HandStack PrePoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1625362073
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1625362072}
+  m_LocalRotation: {x: -0, y: 0.7071068, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: -0, y: 3.13, z: 1.65}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1686868883}
+  m_RootOrder: 1
+  m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+--- !u!1 &1686868882
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1686868883}
+  m_Layer: 6
+  m_Name: HandStack
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1686868883
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1686868882}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 426191110}
+  - {fileID: 1625362073}
+  m_Father: {fileID: 4541141870242516323}
+  m_RootOrder: 2
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &57073112955708427
 GameObject:
   m_ObjectHideFlags: 0
@@ -331,6 +426,11 @@ GameObject:
   m_Component:
   - component: {fileID: 4541141870242516323}
   - component: {fileID: 971556608106169826}
+  - component: {fileID: 177187421}
+  - component: {fileID: 177187419}
+  - component: {fileID: 177187415}
+  - component: {fileID: 177187416}
+  - component: {fileID: 177187420}
   m_Layer: 10
   m_Name: Customer
   m_TagString: Untagged
@@ -352,6 +452,7 @@ Transform:
   m_Children:
   - {fileID: 4879004965011365373}
   - {fileID: 637029286650697684}
+  - {fileID: 1686868883}
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -365,7 +466,7 @@ Animator:
   m_GameObject: {fileID: 3769144362882373593}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 406984eb6e0d06c4e95d79a56f8882ff, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -375,6 +476,139 @@ Animator:
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorControllerStateOnDisable: 0
+--- !u!54 &177187421
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3769144362882373593}
+  serializedVersion: 2
+  m_Mass: 1
+  m_Drag: 0
+  m_AngularDrag: 0.05
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!136 &177187419
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3769144362882373593}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  m_Radius: 0.5
+  m_Height: 1
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &177187415
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3769144362882373593}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 504b8aefbef207b48a9a193808e65fbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  agent: {fileID: 0}
+  anim: {fileID: 0}
+  Basket: {fileID: 0}
+  aIObjectController: {fileID: 177187420}
+  handStackPoint: {fileID: 426191110}
+  pickPoints:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  packPoints:
+  - {fileID: 0}
+  hallPoints:
+  - {fileID: 0}
+  tablePoints:
+  - {fileID: 0}
+  exitPoints:
+  - {fileID: 0}
+  prePickPoint: {fileID: 0}
+  prePackPoint: {fileID: 0}
+  preHallPoint: {fileID: 0}
+  preTablePoint: {fileID: 0}
+  preExitPoint: {fileID: 0}
+  pickIdx: 2
+  packIdx: 0
+  hallIdx: 0
+  tableIdx: 0
+  exitIdx: 0
+  pickLook: {fileID: 0}
+  packLook: {fileID: 0}
+  hallLook: {fileID: 0}
+  tableLook: {fileID: 0}
+  exitLook: {fileID: 0}
+  pickTime: 1
+  packTime: 1
+  eatTime: 2
+  faceSpeedDegPerSec: 540
+  faceDoneAngleDeg: 5
+  state: 0
+  breadCount: 0
+--- !u!195 &177187416
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3769144362882373593}
+  m_Enabled: 1
+  m_AgentTypeID: 0
+  m_Radius: 0.5
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 300
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 2
+  m_BaseOffset: 0
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
+--- !u!114 &177187420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3769144362882373593}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20fcf7cbca93ff0418333220022f55de, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  aIController: {fileID: 177187415}
+  BagPrefab: {fileID: 1475244874789685451, guid: 8a1388a871d05a048bafb9e3eb2f7424, type: 3}
+  pickupBasket: {fileID: 0}
+  dropTable: {fileID: 0}
+  stackPoint: {fileID: 426191110}
+  prestackPoint: {fileID: 1625362073}
+  PaperBagPoint: {fileID: 0}
+  moneyTablePoint: {fileID: 0}
+  pickUpTag: Basket
+  dropOffTag: Table
+  stepHeight: 0.25
+  stackMoveSpeed: 17
+  rotLerp: 8
+  delay: 0.1
+  maxStack: 8
+  PickupFinish: 0
+  BagFinish: 0
+  DropFinish: 0
 --- !u!1 &3898563997361661198
 GameObject:
   m_ObjectHideFlags: 0

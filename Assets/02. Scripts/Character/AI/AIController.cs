@@ -80,6 +80,8 @@ public class AIController : MonoBehaviour
         Reset();
         breadCount = Random.Range(1, 4);
 
+        ClaimPickSlot();
+
         Go(State.Pick);
         _lastState = state; // 초기 상태 동기화
     }
@@ -106,6 +108,10 @@ public class AIController : MonoBehaviour
 
                     if (aIObjectController.PickupFinish)
                     {
+                        var pickList = GameManager.Instance.ai.Pick;
+
+                        pickList[pickIdx] = false;
+
                         state = State.Pack;
                     }
                     break;
@@ -316,4 +322,64 @@ public class AIController : MonoBehaviour
         }
         // else: 아직 방향 맞추는 중이면 타이머 유지
     }
+
+    private void ClaimPickSlot()
+    {
+        // GameManager/AIManager 존재/리스트 유효성 체크
+        if (GameManager.Instance == null || GameManager.Instance.ai == null)
+        {
+            Debug.LogWarning("[AIController] GameManager.Instance.ai 없음");
+            pickIdx = Mathf.Clamp(pickIdx, 0, (pickPoints?.Length ?? 1) - 1);
+            return;
+        }
+
+        var pickList = GameManager.Instance.ai.Pick;
+        if (pickList == null)
+        {
+            Debug.LogWarning("[AIController] AIManager.Pick 리스트 없음");
+            pickIdx = Mathf.Clamp(pickIdx, 0, (pickPoints?.Length ?? 1) - 1);
+            return;
+        }
+
+        // (선택) pickPoints 길이에 맞춰 리스트 크기 보정
+        EnsureListSize(pickList, pickPoints != null ? pickPoints.Length : pickList.Count);
+
+        // 첫 false 슬롯 탐색
+        int chosen = -1;
+        for (int i = 0; i < pickList.Count; i++)
+        {
+            if (!pickList[i])
+            {
+                chosen = i;
+                break;
+            }
+        }
+
+        if (chosen >= 0)
+        {
+            pickIdx = chosen;
+            pickList[chosen] = true; // 점유!
+                                     // 필요하면 여기서 ai.pickPoints/경로 등도 chosen에 맞춰 추가 세팅 가능
+                                     // ex) transform.position = pickPoints[chosen].position; (원하면)
+        }
+        else
+        {
+            // 빈 슬롯이 없을 때의 폴백: 0번(or 가장 가까운 인덱스)로 세팅
+            pickIdx = Mathf.Clamp(pickIdx, 0, (pickPoints?.Length ?? 1) - 1);
+            Debug.LogWarning("[AIController] 빈 Pick 슬롯이 없어 기본 인덱스로 시작합니다. pickIdx=" + pickIdx);
+        }
+    }
+
+    // 리스트를 지정 크기까지 false로 채워 확장
+    private void EnsureListSize(List<bool> list, int size)
+    {
+        if (list == null) return;
+        if (size < 0) size = 0;
+        if (list.Count < size)
+        {
+            int add = size - list.Count;
+            for (int i = 0; i < add; i++) list.Add(false);
+        }
+    }
+
 }

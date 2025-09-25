@@ -8,14 +8,27 @@ public class AIManager : MonoBehaviour
     public List<GameObject> TableMoney = new List<GameObject>();
     [SerializeField] private Transform TableMoneyPoint;
 
+
+    private readonly List<AIController> members = new List<AIController>();
+
     public List<bool> Pick = new List<bool>();
-    public List<bool> Pack = new List<bool>();
-    public List<bool> Table = new List<bool>();
     public List<bool> hall = new List<bool>();
+
+
+    public int PickStateNum = 0;
+    public int hallStateNum = 0;
+    public int AiNum = 0;
+
+    private int MaxAiMum = 7;
+    private int MaxPickStateNum = 3;
+    private int MaxhallStateNum = 0;
+
+    private float timer;
 
     [Header("Prefabs")]
     [SerializeField] private GameObject moneyPrefab;
-
+    [SerializeField] private GameObject aiPrefab;
+    [SerializeField] private Transform spawnPoints;
     // ▼ 쌓는 순서 옵션
     private enum GridOrder { RowMajor, ColumnMajor }
     [SerializeField] private GridOrder order = GridOrder.RowMajor; // 기본: 세로 먼저
@@ -73,4 +86,36 @@ public class AIManager : MonoBehaviour
             list.Add(money);
         }
     }
+
+    private void Update()
+    {
+        timer += Time.deltaTime;
+        if (timer >= 0.5f)   // 0.25초마다 실행
+        {
+            timer = 0f;
+            SpawnAIIfFree();
+        }
+    }
+
+    private void SpawnAIIfFree()
+    {
+        for (int i = 0; i < Pick.Count; i++)
+        {
+            if (!Pick[i])
+            {
+                var aiGO = Instantiate(aiPrefab, spawnPoints.position, spawnPoints.rotation);
+                aiGO.SetActive(true);
+
+                if (aiGO.TryGetComponent(out AIController ai))
+                {
+                    members.Add(ai);   // ← 여기 한 줄이면 끝!
+                }
+
+                break; // 한 번에 하나만 스폰
+            }
+        }
+    }
+
+
+
 }
