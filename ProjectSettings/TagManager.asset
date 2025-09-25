@@ -11,15 +11,16 @@ TagManager:
   - Money
   - MoneyUse
   - Eat
+  - trashClear
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Player
   - Water
   - UI
   - AI
-  - 
+  - Bread
   - 
   - 
   - 

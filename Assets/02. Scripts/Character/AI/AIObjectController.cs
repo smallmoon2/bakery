@@ -1,97 +1,198 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization; // ¡ç ÀÎ½ºÆåÅÍ À¯Áö¿ë
+// using Unity.Burst.Intrinsics; // ÇÊ¿ä ¾øÀ¸¸é Áö¿öµµ µÊ
 
 public class AIObjectController : MonoBehaviour
 {
-    [Header("Refs (Pickup / Drop)")]
-    [SerializeField] private AIController aIController;
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Refs (Core)
+    [Header("Refs (Core)")]
+    [SerializeField, FormerlySerializedAs("aIController")] private AIController aiController;
 
-    [SerializeField] private GameObject BagPrefab;
-    [SerializeField] private BreadBasket pickupBasket;   // ¿©±â¼­ pickUp
-    [SerializeField] private BreadTable dropTable;       // ¿©±â·Î dropOff
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Basket (PickUp)
+    [Header("Basket (PickUp)")]
+    [SerializeField, FormerlySerializedAs("pickupBasket")] private BreadBasket basketPickup;   // pick up from
+    [SerializeField, FormerlySerializedAs("pickUpTag")] private string basketTag = "Basket"; // Æ®¸®°Å ÅÂ±×
 
-    [SerializeField] private Transform stackPoint;
-    [SerializeField] private Transform prestackPoint;
-    [SerializeField] private Transform PaperBagPoint;
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Table (DropOff)
+    [Header("Table (DropOff)")]
+    [SerializeField, FormerlySerializedAs("dropTable")] private BreadTable tableDrop;        // drop to
+    [SerializeField, FormerlySerializedAs("dropOffTag")] private string tableTag = "Table";   // Æ®¸®°Å ÅÂ±×
 
-    [SerializeField] private Transform moneyTablePoint;
+    [Header("Food Placement (Eat)")]
+    [SerializeField] private Transform foodPoint;     // ÃÖÁ¾ ³õÀ» À§Ä¡
+    [SerializeField] private Transform preFoodPoint;  // °æÀ¯ ÁöÁ¡(¿É¼Ç)
+    [SerializeField] private GameObject chair;  // °æÀ¯ ÁöÁ¡(¿É¼Ç)
+    [SerializeField] private GameObject trashPrefab;  // ¾²·¹±â ¿ÀºêÁ§Æ®
+    public bool trashSpawned = false; // ¾²·¹±â ±³Ã¼ 1È¸ °¡µå
+    private bool movedToFood = false;
 
-    [Header("Tags")]
-    [SerializeField] private string pickUpTag = "Basket";   // ÇÈ¾÷ Á¸
-    [SerializeField] private string dropOffTag = "Table";   // µå·Ó Á¸
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Hand Stack / Points
+    [Header("Hand Stack / Points")]
+    [SerializeField, FormerlySerializedAs("stackPoint")] private Transform stackPoint;
+    [SerializeField, FormerlySerializedAs("prestackPoint")] private Transform preStackPoint;
 
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Bag
+    [Header("Bag")]
+    [SerializeField, FormerlySerializedAs("BagPrefab")] private GameObject bagPrefab;
+    [SerializeField, FormerlySerializedAs("PaperBagPoint")] private Transform bagPoint;
+
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Money (Hall Àü¿ë)
+    [Header("Money (Hall Only)")]
+    [SerializeField, FormerlySerializedAs("moneyTablePoint")] private Transform moneyPoint;
+
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Motion & Limits
     [Header("Motion")]
-    [SerializeField] private float stepHeight = 0.25f;   // Ãþ °£°Ý
-    [SerializeField] private float stackMoveSpeed = 8f;  // ÀÌµ¿ ¼Óµµ
-    [SerializeField] private float rotLerp = 8f;         // È¸Àü º¸°£
-    [SerializeField] private float delay = 0.1f;         // ÇÈ¾÷/µå·Ó °£ °£°Ý
+    [SerializeField] private float stepHeight = 0.25f;  // Ãþ °£°Ý
+    [SerializeField] private float stackMoveSpeed = 8f; // ÀÌµ¿ ¼Óµµ
+    [SerializeField] private float rotLerp = 8f;        // È¸Àü º¸°£
+    [SerializeField, FormerlySerializedAs("delay")] private float actionDelay = 0.1f; // ÇÈ¾÷/µå·Ó °£ °£°Ý
 
     [Header("Limits")]
     [SerializeField] private int maxStack = 8;
 
-    private Stack<GameObject> stacking = new Stack<GameObject>(); // ¼Õ¿¡ µç °Íµé
-
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Runtime
+    private readonly Stack<GameObject> stacking = new Stack<GameObject>(); // ¼Õ¿¡ µç °Íµé
     private GameObject currentBag;
     private Coroutine bagCo;
 
-    private bool moneyCreated = false;
-
     private bool canStack;
     private bool canDrop;
-    private float nextMove = 0f;
-    public bool PickupFinish;
-    public bool BagFinish;
-    public bool DropFinish;   // ¡Ú µå·Ó ¿Ï·á ÇÃ·¡±× Ãß°¡
-
-    // µ¿½Ã ÁøÇà ¹æÁö
     private bool isPicking = false;
     private bool isDropping = false;
+    private bool moneyCreated = false;
 
+    private float nextMove = 0f;
+
+    // ¿ÜºÎ¿¡¼­ º¸´Â ÇÃ·¡±×
+    public bool PickupFinish;
+    public bool BagFinish;
+    public bool DropFinish;
+
+    [SerializeField] private bool debugDropGate = false;
+
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Unity Loop
     private void Update()
     {
-        if (!aIController || !aIController.readyForNext) return;
 
-        int maxCarry = Mathf.Min(maxStack, aIController.breadCount);
+        // »ó½Ã °¨Áö
 
+        if (aiController.eatingLogicSFinshed && !trashSpawned)  // ¡ç »ç¿ëÀÚ°¡ ¸»ÇÑ º¯¼ö¸í ±×´ë·Î
+        {
+            Debug.Log("À½½ÄÃ³¸®");
+            StartCoroutine(ReplaceFoodWithTrashOnce());
+        }
+
+        /// Çàµ¿ ÈÄ Ã³¸®
+
+        if (!aiController || !aiController.readyForNext) return;
+
+        bool cond_canDrop = canDrop;
+        bool cond_timeOK = Time.time >= nextMove;
+        int stackCnt = stacking.Count;
+        bool cond_hasStack = stackCnt > 0;
+        bool cond_notDropping = !isDropping;
+
+        var gm = GameManager.Instance;
+        bool cond_hasGM = gm != null;
+        bool cond_hasAI = cond_hasGM && gm.ai != null;
+        bool cond_isCalc = cond_hasAI && gm.ai.isCalculated;
+
+        if (debugDropGate)
+        {
+            Debug.Log(
+                $"[DropGate] canDrop={cond_canDrop} | timeOK={cond_timeOK} (t={Time.time:F2}, next={nextMove:F2}) | " +
+                $"hasStack={cond_hasStack} (count={stackCnt}) | notDropping={cond_notDropping} | " +
+                $"GM={(cond_hasGM ? "OK" : "NULL")} AI={(cond_hasAI ? "OK" : "NULL")} isCalculated={(cond_hasAI ? gm.ai.isCalculated.ToString() : "n/a")}"
+            );
+        }
+        // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+
+        if (cond_canDrop && cond_timeOK && cond_hasStack && cond_notDropping && cond_isCalc)
+        {
+            if (aiController.isHall)
+            {
+                if (debugDropGate) Debug.Log($"[DropGate] PASS ¡æ Hall ºÐ±â (moneyCreated={moneyCreated})");
+                if (!moneyCreated)
+                {
+                    gm.ai.Moneycreate(moneyPoint, aiController.breadCount * 5);
+                    BagFinish = true;
+                    moneyCreated = true;
+                }
+            }
+            else
+            {
+                if (debugDropGate) Debug.Log("[DropGate] PASS ¡æ Table µå·Ó ºÐ±â StartDropOne()");
+                StartDropOne();
+                nextMove = Time.time + actionDelay;
+            }
+        }
+        else
+        {
+            // ¾î¶² Á¶°ÇÀÌ ¸·¾Ò´ÂÁö »ó¼¼ °æ°í
+            if (debugDropGate)
+            {
+                if (!cond_canDrop) Debug.LogWarning("[DropGate] BLOCKED: canDrop == false (Table Æ®¸®°Å ¾È¿¡ ¾Æ´Ô?)");
+                if (!cond_timeOK) Debug.LogWarning($"[DropGate] BLOCKED: Time.time < nextMove ({Time.time:F2} < {nextMove:F2})");
+                if (!cond_hasStack) Debug.LogWarning("[DropGate] BLOCKED: stacking.Count == 0 (¼Õ¿¡ ¹°°Ç ¾øÀ½)");
+                if (!cond_notDropping) Debug.LogWarning("[DropGate] BLOCKED: isDropping == true (µå·Ó Áß)");
+                if (!cond_hasGM) Debug.LogWarning("[DropGate] BLOCKED: GameManager.Instance == null");
+                else if (!cond_hasAI) Debug.LogWarning("[DropGate] BLOCKED: GameManager.Instance.ai == null");
+                else if (!cond_isCalc) Debug.LogWarning("[DropGate] BLOCKED: ai.isCalculated == false");
+            }
+        }
+        int maxCarry = Mathf.Min(maxStack, aiController.breadCount);
+
+        // Basket ¡æ ¼Õ(½ºÅÃ)
         if (canStack && Time.time >= nextMove && stacking.Count < maxCarry && !isPicking)
         {
             StartPickupOne();
-            nextMove = Time.time + delay;
+            nextMove = Time.time + actionDelay;
         }
 
+        // ¼Õ(½ºÅÃ) ¡æ Table or Hall Money
         if (canDrop && Time.time >= nextMove && stacking.Count > 0 && !isDropping &&
             GameManager.Instance && GameManager.Instance.ai && GameManager.Instance.ai.isCalculated)
         {
-            if (aIController.isHall)
+            if (aiController.isHall)
             {
+                Debug.Log(!moneyCreated);
                 if (!moneyCreated)
                 {
-                    GameManager.Instance.ai.Moneycreate(moneyTablePoint, aIController.breadCount * 5);
+                    GameManager.Instance.ai.Moneycreate(moneyPoint, aiController.breadCount * 5);
                     BagFinish = true;
-                    moneyCreated = true;   // ¡ç ÇÑ¹ø¸¸
+                    moneyCreated = true;   // ÇÑ ¹ø¸¸
                 }
             }
             else
             {
                 StartDropOne();
-                nextMove = Time.time + delay;
+                nextMove = Time.time + actionDelay;
             }
         }
 
-        if (stacking.Count == aIController.breadCount && !isPicking)
+        if (aiController.eatingLogicStarted && !movedToFood)
+        {
+            StartCoroutine(MoveHandStackToFoodPointOnce());
+        }
+
+
+
+        // ¸ðµÎ Áý¾úÀ¸¸é ¾à°£ ´ë±â ÈÄ ¿Ï·á
+        if (stacking.Count == aiController.breadCount && !isPicking)
         {
             StartCoroutine(SetPickupFinishWithDelay(0.5f));
         }
     }
 
-    // ---------- PICKUP ----------
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ PICKUP
     private void StartPickupOne()
     {
-        if (!pickupBasket || !stackPoint || pickupBasket.playerdropOff) return;
-        if (pickupBasket.breads == null || pickupBasket.breads.Count == 0) return;
+        if (!basketPickup || !stackPoint || basketPickup.playerdropOff) return;
+        if (basketPickup.breads == null || basketPickup.breads.Count == 0) return;
 
-        var picked = pickupBasket.breads.Pop();
+        var picked = basketPickup.breads.Pop();
         if (!picked) return;
 
         int slotIndex = stacking.Count;
@@ -105,7 +206,7 @@ public class AIObjectController : MonoBehaviour
         EnsureKinematic(picked);
         var t = picked.transform;
 
-        Vector3 basePos = prestackPoint ? prestackPoint.position : (stackPoint ? stackPoint.position : t.position);
+        Vector3 basePos = preStackPoint ? preStackPoint.position : (stackPoint ? stackPoint.position : t.position);
         Vector3 prePos = basePos + Vector3.up * (stepHeight * slotIndex);
 
         Vector3 handPos = (stackPoint ? stackPoint.position : t.position) + Vector3.up * (stepHeight * slotIndex);
@@ -136,19 +237,19 @@ public class AIObjectController : MonoBehaviour
         isPicking = false;
     }
 
-    // ---------- DROPOFF ----------
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ DROPOFF (Table)
     private void StartDropOne()
     {
         // °¡¹æ ·ÎÁ÷Àº ÇÑ ¹ø¸¸ ½ºÅ¸Æ®
         if (bagCo == null)
             bagCo = StartCoroutine(Baglogic());
 
-        if (!dropTable || stacking.Count == 0) return;
+        if (!tableDrop || stacking.Count == 0) return;
 
-        var slots = dropTable.Rslots;
+        var slots = tableDrop.Rslots;
         if (slots == null || slots.Count == 0) return;
 
-        int nextIndex = dropTable.breads.Count;
+        int nextIndex = tableDrop.breads.Count;
         int maxCapacity = Mathf.Min(slots.Count, 8);
         if (nextIndex >= maxCapacity) return;
 
@@ -170,7 +271,7 @@ public class AIObjectController : MonoBehaviour
 
         Vector3 fromPos = t.position;
 
-        Vector3 basePos = prestackPoint ? prestackPoint.position : fromPos;
+        Vector3 basePos = preStackPoint ? preStackPoint.position : fromPos;
         Vector3 prePos = basePos + Vector3.up * (stepHeight * slotIndex);
 
         while ((t.position - prePos).sqrMagnitude > 0.0001f)
@@ -196,27 +297,26 @@ public class AIObjectController : MonoBehaviour
         t.localPosition = Vector3.zero;
         t.localRotation = Quaternion.identity;
 
-        dropTable.breads.Push(bread);
-
+        tableDrop.breads.Push(bread);
         Destroy(bread);
 
         isDropping = false;
     }
 
-    // ---------- TRIGGERS ----------
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ TRIGGERS
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag(pickUpTag)) canStack = true;     // Basket Á¸
-        if (other.CompareTag(dropOffTag)) canDrop = true;     // Table Á¸
+        if (other.CompareTag(basketTag)) canStack = true; // Basket Á¸
+        if (other.CompareTag(tableTag)) canDrop = true; // Table  Á¸
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (other.CompareTag(pickUpTag)) canStack = false;
-        if (other.CompareTag(dropOffTag)) canDrop = false;
+        if (other.CompareTag(basketTag)) canStack = false;
+        if (other.CompareTag(tableTag)) canDrop = false;
     }
 
-    // ---------- UTIL ----------
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Utils
     private void EnsureKinematic(GameObject go)
     {
         if (go && go.TryGetComponent<Rigidbody>(out var rb))
@@ -234,26 +334,25 @@ public class AIObjectController : MonoBehaviour
         PickupFinish = true;
     }
 
-    // ---------- BAG ----------
+    // ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ Bag Logic
     private IEnumerator Baglogic()
     {
-        if (!BagPrefab || !PaperBagPoint)
+        if (!bagPrefab || !bagPoint)
         {
-            Debug.LogWarning("[AIObjectController] BagPrefab ¶Ç´Â PaperBagPoint ¹ÌÇÒ´ç");
+            Debug.LogWarning("[AIObjectController] bagPrefab ¶Ç´Â bagPoint ¹ÌÇÒ´ç");
             bagCo = null;
             yield break;
         }
 
-        // ¾øÀ¸¸é »ý¼º (PaperBagPoint¿¡¼­ ½ÃÀÛ)
+        // ¾øÀ¸¸é »ý¼º (bagPoint¿¡¼­ ½ÃÀÛ)
         if (currentBag == null)
-            currentBag = Instantiate(BagPrefab, PaperBagPoint.position, PaperBagPoint.rotation, PaperBagPoint);
+            currentBag = Instantiate(bagPrefab, bagPoint.position, bagPoint.rotation, bagPoint);
 
         // 1.2ÃÊ ´ë±â
         yield return new WaitForSeconds(1.2f);
 
         // ¾Ö´Ï Æ®¸®°Å
-        var anim = currentBag.GetComponent<Animator>();
-        if (!anim) anim = currentBag.GetComponentInChildren<Animator>();
+        var anim = currentBag.GetComponent<Animator>() ?? currentBag.GetComponentInChildren<Animator>();
         if (anim)
         {
             anim.ResetTrigger("BagClose");
@@ -268,13 +367,12 @@ public class AIObjectController : MonoBehaviour
             yield return new WaitForSeconds(0.5f);
         }
 
-        // ¡Ú ¾Ö´Ï ³¡³ª¸é °¡¹æÀ» prestackPoint ¡æ stackPoint(½½·Ô ³ôÀÌ)·Î ÀÌµ¿
+        // ¾Ö´Ï ³¡³ª¸é °¡¹æ ÀÌµ¿
         yield return StartCoroutine(MoveBagToStackRoutine());
 
         bagCo = null;
     }
 
-    // ¾Ö´Ï¸ÞÀÌ¼Ç Á¾·á ´ë±â (»óÅÂ ÀüÈ¯ ³¡ + normalizedTime ±âÁØ, Å¸ÀÓ¾Æ¿ô Æ÷ÇÔ)
     private IEnumerator WaitForAnimatorFinishOrTimeout(Animator anim, int layer, float minNormalizedTime, float timeout)
     {
         float t = 0f;
@@ -298,26 +396,21 @@ public class AIObjectController : MonoBehaviour
         }
     }
 
-    // °¡¹æÀ» prestack ¡æ stackPoint(ÇöÀç ¼Õ ½ºÅÃ ³ôÀÌ)·Î ÀÌµ¿
     private IEnumerator MoveBagToStackRoutine()
     {
-        if (!currentBag)
-            yield break;
-
+        if (!currentBag) yield break;
         if (!stackPoint)
         {
             Debug.LogWarning("[AIObjectController] stackPoint ¹ÌÇÒ´ç: °¡¹æ ÀÌµ¿À» Áß´ÜÇÕ´Ï´Ù.");
             yield break;
         }
 
-        // ¼Õ¿¡ µé·ÁÀÖ´Â »§ °¹¼ö¸¸Å­ À§·Î ½×´Â µ¿ÀÏÇÑ ±ÔÄ¢ »ç¿ë
         int slotIndex = stacking.Count;
 
         EnsureKinematic(currentBag);
         var t = currentBag.transform;
 
-        // ¸ñÇ¥µé °è»ê
-        Vector3 basePos = prestackPoint ? prestackPoint.position : stackPoint.position;
+        Vector3 basePos = preStackPoint ? preStackPoint.position : stackPoint.position;
         Vector3 prePos = basePos + Vector3.up * (stepHeight * slotIndex);
 
         Vector3 handPos = stackPoint.position + Vector3.up * (stepHeight * slotIndex);
@@ -344,11 +437,113 @@ public class AIObjectController : MonoBehaviour
         t.position = handPos;
         t.rotation = handRot;
 
-        
-        GameManager.Instance.ai.Moneycreate(moneyTablePoint,aIController.breadCount * 5);
+        // HallÀÏ ¶§ µ· »ý¼º (¿©±ä °¡µå ¾øÀÌ ÇÑ ¹ø¸¸ È£Ãâ)
+        GameManager.Instance.ai.Moneycreate(moneyPoint, aiController.breadCount * 5);
 
         BagFinish = true;
     }
 
-}
+    private IEnumerator MoveHandStackToFoodPointOnce()
+    {
+        movedToFood = true;
 
+        if (!stackPoint || !foodPoint)
+            yield break;
+
+        // ÇöÀç ¼Õ¿¡ µé¸°(=stackPointÀÇ ÀÚ½Ä) ¿ÀºêÁ§Æ®µéÀ» ¸®½ºÆ®·Î ¸ÕÀú º¹»ç
+        var items = new List<Transform>();
+        for (int i = 0; i < stackPoint.childCount; i++)
+            items.Add(stackPoint.GetChild(i));
+
+        // À§¿¡¼­ºÎÅÍ/¾Æ·¡¿¡¼­ºÎÅÍ ¾î´À ¼ø¼­µç ¿øÇÏ´Â ´ë·Î.
+        // ¿©±â¼± 0,1,2... ¼ø¼­´ë·Î foodPoint¿¡ 0,1,2...·Î ½×À½
+        for (int i = 0; i < items.Count; i++)
+        {
+            var tr = items[i];
+            if (!tr) continue;
+
+            // ¹°¸® ¿µÇâ Á¦°Å
+            EnsureKinematic(tr.gameObject);
+
+            // ¸ñÇ¥ Æ÷Áî °è»ê
+            Vector3 prePos = (preFoodPoint ? preFoodPoint.position : foodPoint.position) + Vector3.up * (stepHeight * i);
+            Vector3 targetPos = foodPoint.position + Vector3.up * (stepHeight * i);
+            Quaternion targetRot = foodPoint.rotation;
+
+            // ÇöÀç À§Ä¡ ¡æ preFoodPoint
+            while ((tr.position - prePos).sqrMagnitude > 0.0001f)
+            {
+                tr.position = Vector3.MoveTowards(tr.position, prePos, stackMoveSpeed * Time.deltaTime);
+                tr.rotation = Quaternion.Slerp(tr.rotation, targetRot, rotLerp * Time.deltaTime);
+                yield return null;
+            }
+
+            // preFoodPoint ¡æ foodPoint(ÃÖÁ¾)
+            // ¸ÕÀú ºÎ¸ð¸¦ foodPoint·Î ¹Ù²ãµµ µÇ°í, ³¡³ª°í ¹Ù²ãµµ µÊ. ¿©±â¼± ³¡³ª°í Á¤È®È÷ ½º³À.
+            while ((tr.position - targetPos).sqrMagnitude > 0.0001f)
+            {
+                tr.position = Vector3.MoveTowards(tr.position, targetPos, stackMoveSpeed * Time.deltaTime);
+                tr.rotation = Quaternion.Slerp(tr.rotation, targetRot, rotLerp * Time.deltaTime);
+                yield return null;
+            }
+
+            tr.SetParent(foodPoint, true);
+            tr.position = targetPos;
+            tr.rotation = targetRot;
+        }
+    }
+    private IEnumerator ReplaceFoodWithTrashOnce()
+    {
+        trashSpawned = true;
+
+        if (!foodPoint)
+        {
+            Debug.LogWarning("[AIObjectController] foodPoint ¹ÌÇÒ´ç");
+            yield break;
+        }
+        if (!trashPrefab)
+        {
+            Debug.LogWarning("[AIObjectController] trashPrefab ¹ÌÇÒ´ç");
+            yield break;
+        }
+
+        // ÀÚ½Ä ½º³À¼¦
+        var children = new List<Transform>();
+        for (int i = 0; i < foodPoint.childCount; i++)
+            children.Add(foodPoint.GetChild(i));
+
+        // Áß¾Ó(centroid) À§Ä¡ °è»ê
+        Vector3 spawnPos;
+        if (children.Count > 0)
+        {
+            Vector3 sum = Vector3.zero;
+            foreach (var c in children) if (c) sum += c.position;
+            spawnPos = sum / children.Count;
+
+            // ¡Ú ¸¸¾à "Ã¹ ¹øÂ° ÀÚ½Ä À§Ä¡"·Î ¾²°í ½Í´Ù¸é ¾Æ·¡ ÇÑ ÁÙ·Î ±³Ã¼:
+            // spawnPos = children[0].position;
+        }
+        else
+        {
+            // ÀÚ½ÄÀÌ ¾øÀ¸¸é foodPoint ÀÚÃ¼ À§Ä¡ »ç¿ë
+            spawnPos = foodPoint.position;
+        }
+
+        Quaternion spawnRot = foodPoint.rotation;
+
+        // ÀÚ½Äµé Á¦°Å
+        foreach (var c in children)
+            if (c) Destroy(c.gameObject);
+
+        // ¾²·¹±â ´Ü 1°³ »ý¼º
+        GameManager.Instance.ai.Trash = Instantiate(trashPrefab, spawnPos, spawnRot, foodPoint);
+        GameManager.Instance.ai.Chair = chair;
+        chair.transform.eulerAngles = new Vector3(
+            chair.transform.eulerAngles.x,
+            chair.transform.eulerAngles.y + 45f,
+            chair.transform.eulerAngles.z
+        );
+        yield return null;
+    }
+
+}

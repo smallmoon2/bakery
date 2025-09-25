@@ -19,6 +19,9 @@ public class AIManager : MonoBehaviour
     public List<bool> Pick = new List<bool>();
     public List<bool> hall = new List<bool>();
 
+    public GameObject Trash;
+    public GameObject Chair;
+
     public bool isHallOpen = false;
     public bool isTableempty = true;
 

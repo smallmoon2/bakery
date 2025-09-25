@@ -24,7 +24,6 @@ public class BreadStack : MonoBehaviour
 
     [Header("Stack Flow")]
     [SerializeField] private float stackDelay = 0.1f;
-    [SerializeField] private int handMaxCount = 8;
     private Stack<GameObject> stacking = new Stack<GameObject>();
 
     // bread currently moving to basket: <bread, target slot>

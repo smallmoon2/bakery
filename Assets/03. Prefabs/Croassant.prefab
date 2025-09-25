@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3079897477633646847}
   - component: {fileID: -3785160650303170661}
   - component: {fileID: 5048000445241642421}
-  m_Layer: 8
+  m_Layer: 7
   m_Name: Croassant
   m_TagString: Untagged
   m_Icon: {fileID: 0}

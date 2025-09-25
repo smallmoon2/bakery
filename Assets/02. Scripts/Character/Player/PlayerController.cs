@@ -23,6 +23,7 @@ public class PlayerController : MonoBehaviour
     
     void init()
     {
+        playerObjectController = FindObjectOfType<PlayerObjectController>();
         joystick = FindObjectOfType<VariableJoystick>();
         anim = GetComponentInChildren<Animator>(true);
         cc = GetComponent<CharacterController>();
@@ -76,6 +77,9 @@ public class PlayerController : MonoBehaviour
         float animValue = anim.GetFloat("Move");
         animValue = Mathf.Lerp(animValue, targetValue, 10f * Time.deltaTime);
         anim.SetFloat("Move", animValue);
+
+        bool hasStack = playerObjectController.stackPoint && playerObjectController.stackPoint.childCount > 0;
+        anim.SetBool("Stack", hasStack);
 
     }
 

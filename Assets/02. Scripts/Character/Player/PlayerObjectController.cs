@@ -20,8 +20,7 @@ public class PlayerObjectController : MonoBehaviour
     // ===================== OVEN (Bread Pick) =====================
     [Header("Oven")]
     [SerializeField] private BreadSpawner spawner;     // 오븐에서 꺼낼 빵 소스
-    [SerializeField] private Transform stackPoint;     // 손에 쌓일 기준점
-    [SerializeField] private Transform prestackPoint;  // 손으로 오기 전 경유점
+    [SerializeField] public Transform stackPoint;     // 손에 쌓일 기준점
     [SerializeField] private string pickUpTag = "Oven";
 
     // ===================== BASKET (Bread Drop) =====================
@@ -38,6 +37,10 @@ public class PlayerObjectController : MonoBehaviour
 
     [Header("Limits")]
     [SerializeField] private int maxStack = 8;
+
+    [Header("Drop Arc (No Prestack)")]
+    [SerializeField] private float ArcHeight = 1f; // 얼마나 위로 튀어오를지
+    [SerializeField] private float ArcSpeed = 10f;  // 이동 속도(거리/초)
 
     // ===================== STATE =====================
     private Stack<GameObject> stacking = new Stack<GameObject>();
@@ -61,6 +64,7 @@ public class PlayerObjectController : MonoBehaviour
 
     private void Update()
     {
+
         // 빵 픽업
         if (canStack && Time.time >= nextMove && stacking.Count < maxStack && !isPicking)
         {
@@ -116,50 +120,62 @@ public class PlayerObjectController : MonoBehaviour
         StartCoroutine(PickupOneRoutine(picked, slotIndex));
     }
 
-    private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
+private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
+{
+    isPicking = true;
+    EnsureKinematic(picked);
+    var t = picked.transform;
+
+    if (!stackPoint)
     {
-        isPicking = true;
-        EnsureKinematic(picked);
-        var t = picked.transform;
-        const float EPS = 0.0001f;
-
-        // 현재 위치 → prestack (실시간 목표)
-        while (true)
-        {
-            Vector3 preBase = prestackPoint ? prestackPoint.position : (stackPoint ? stackPoint.position : t.position);
-            Vector3 prePos = preBase + Vector3.up * (stepHeight * slotIndex);
-            Quaternion preRot = stackPoint ? stackPoint.rotation : t.rotation;
-
-            t.position = Vector3.MoveTowards(t.position, prePos, stackMoveSpeed * Time.deltaTime);
-            t.rotation = Quaternion.Slerp(t.rotation, preRot, rotLerp * Time.deltaTime);
-
-            if ((t.position - prePos).sqrMagnitude <= EPS) break;
-            yield return null;
-        }
-
-        // prestack → 손 슬롯 (실시간 목표)
-        while (true)
-        {
-            Vector3 handPos = (stackPoint ? stackPoint.position : t.position) + Vector3.up * (stepHeight * slotIndex);
-            Quaternion handRot = stackPoint ? stackPoint.rotation : t.rotation;
-
-            t.position = Vector3.MoveTowards(t.position, handPos, stackMoveSpeed * Time.deltaTime);
-            t.rotation = Quaternion.Slerp(t.rotation, handRot, rotLerp * Time.deltaTime);
-
-            if ((t.position - handPos).sqrMagnitude <= EPS) break;
-            yield return null;
-        }
-
-        if (stackPoint)
-        {
-            t.SetParent(stackPoint, true);
-            t.position = stackPoint.position + Vector3.up * (stepHeight * slotIndex);
-            t.rotation = stackPoint.rotation;
-        }
-
-        stacking.Push(picked);
         isPicking = false;
+        yield break;
     }
+
+    // 시작 스냅샷
+    Vector3    startPos = t.position;
+    Quaternion startRot = t.rotation;
+
+    // 시간 계산(초기 거리 기준)  타겟이 움직여도 duration은 고정
+    float dist     = Vector3.Distance(startPos, stackPoint.position + Vector3.up * (stepHeight * slotIndex));
+    float duration = Mathf.Max(0.05f, dist / Mathf.Max(0.01f, ArcSpeed));
+
+    float elapsed = 0f;
+    while (elapsed < duration)
+    {
+        if (!stackPoint) break; // 중간에 타겟 사라지면 탈출
+
+        float u  = elapsed / duration;   // 0..1
+        // 선형으로 현재 타겟을 따라감 (매 프레임 최신 타겟 반영)
+        Vector3   endPos = stackPoint.position + Vector3.up * (stepHeight * slotIndex);
+        Quaternion endRot = stackPoint.rotation;
+
+        // 직선 보간 + 포물선 오프셋(최대 ArcHeight, 중간에서 피크)
+        Vector3 line = Vector3.Lerp(startPos, endPos, u);
+        float   arc  = 4f * u * (1f - u) * ArcHeight;   // 0→peak→0
+        Vector3 pos  = line + Vector3.up * arc;         // 필요하면 stackPoint.up로 바꿔도 됨
+
+        t.position = pos;
+        t.rotation = Quaternion.Slerp(startRot, endRot, u);
+
+        elapsed += Time.deltaTime;
+        yield return null;
+    }
+
+    // 마지막 스냅 & 부모 설정(월드값 유지해서 스케일 깨짐 방지)
+    if (stackPoint)
+    {
+        Vector3   endPos = stackPoint.position + Vector3.up * (stepHeight * slotIndex);
+        Quaternion endRot = stackPoint.rotation;
+
+        t.position = endPos;
+        t.rotation = endRot;
+        t.SetParent(stackPoint, true); // worldPositionStays = true
+    }
+
+    stacking.Push(picked);
+    isPicking = false;
+}
 
     // ===================== BREAD: DROP =====================
     private void StartDropOne()
@@ -188,28 +204,49 @@ public class PlayerObjectController : MonoBehaviour
         EnsureKinematic(bread);
         var t = bread.transform;
 
-        Vector3 basePos = prestackPoint ? prestackPoint.position : t.position;
-        Vector3 prePos = basePos + Vector3.up * (stepHeight * slotIndex);
-
-        while ((t.position - prePos).sqrMagnitude > 0.0001f)
+        if (!slotT || !bread)
         {
-            t.position = Vector3.MoveTowards(t.position, prePos, stackMoveSpeed * Time.deltaTime);
-            t.rotation = Quaternion.Slerp(t.rotation, slotT.rotation, rotLerp * Time.deltaTime);
+            isDropping = false;
+            yield break;
+        }
+
+
+        // 시작/도착 스냅샷
+        Vector3 startPos = t.position;
+        Quaternion startRot = t.rotation;
+        Vector3 endPos = slotT.position;
+        Quaternion endRot = slotT.rotation;
+
+        // 컨트롤 포인트: 중간 지점에서 위로 올려 포물선 느낌
+        Vector3 mid = (startPos + endPos) * 0.5f;
+        Vector3 control = mid + Vector3.up * ArcHeight;
+
+        // 거리 기반 시간 계산
+        float dist = Vector3.Distance(startPos, endPos);
+        float duration = Mathf.Max(0.05f, dist / Mathf.Max(0.01f, ArcSpeed));
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            float u = elapsed / duration;       // 0..1
+            float uu = 1f - u;
+
+            // Quadratic Bezier: B(u) = (1-u)^2*A + 2(1-u)u*C + u^2*B
+            Vector3 pos =
+                uu * uu * startPos +
+                2f * uu * u * control +
+                u * u * endPos;
+
+            t.position = pos;
+            t.rotation = Quaternion.Slerp(startRot, endRot, u); // 회전도 자연스럽게
+
+            elapsed += Time.deltaTime;
             yield return null;
         }
 
-        Vector3 targetPos = slotT.position;
-        Quaternion targetRot = slotT.rotation;
-
-        t.SetParent(slotT, true);
-
-        while ((t.position - targetPos).sqrMagnitude > 0.0001f)
-        {
-            t.position = Vector3.MoveTowards(t.position, targetPos, stackMoveSpeed * Time.deltaTime);
-            t.rotation = Quaternion.Slerp(t.rotation, targetRot, rotLerp * Time.deltaTime);
-            yield return null;
-        }
-
+        // 최종 스냅 & 부모 설정
+        t.position = endPos;
+        t.rotation = endRot;
         t.SetParent(slotT, false);
         t.localPosition = Vector3.zero;
         t.localRotation = Quaternion.identity;
@@ -435,7 +472,26 @@ public class PlayerObjectController : MonoBehaviour
                 openLock = found;
             }
         }
- 
+        if (other.CompareTag("trashClear"))
+        {
+            var ai = GameManager.Instance != null ? GameManager.Instance.ai : null;
+            if (ai != null && ai.Trash != null)
+            {
+                Destroy(ai.Trash);
+                ai.Trash = null; // 참조도 정리
+                var chair = ai.Chair;
+                chair.transform.eulerAngles = new Vector3(
+                chair.transform.eulerAngles.x,
+                chair.transform.eulerAngles.y - 45f,
+                chair.transform.eulerAngles.z
+                );
+            }
+            else
+            {
+                Debug.LogWarning("[AIObjectController] ai.Trash 가 없거나 이미 제거되었습니다.");
+            }
+        }
+
     }
 
     private void OnTriggerExit(Collider other)
