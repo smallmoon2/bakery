@@ -1,19 +1,26 @@
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class AIManager : MonoBehaviour
 {
     public bool isCalculated;
 
+    
+
     public List<GameObject> TableMoney = new List<GameObject>();
     [SerializeField] private Transform TableMoneyPoint;
 
+    public enum ListState { Pack, Hall }
+    [SerializeField] private List<AIController> Packmembers = new List<AIController>();
+    [SerializeField] private List<AIController> Hallmembers = new List<AIController>();
 
-    private readonly List<AIController> members = new List<AIController>();
 
     public List<bool> Pick = new List<bool>();
     public List<bool> hall = new List<bool>();
 
+    public bool isHallOpen = false;
+    public bool isTableempty = true;
 
     public int PickStateNum = 0;
     public int hallStateNum = 0;
@@ -106,16 +113,54 @@ public class AIManager : MonoBehaviour
                 var aiGO = Instantiate(aiPrefab, spawnPoints.position, spawnPoints.rotation);
                 aiGO.SetActive(true);
 
-                if (aiGO.TryGetComponent(out AIController ai))
-                {
-                    members.Add(ai);   // ← 여기 한 줄이면 끝!
-                }
-
+                
                 break; // 한 번에 하나만 스폰
             }
         }
     }
 
+    public void AddToList(AIController ai, ListState listState)
+    {
+        if (ai == null) return;
 
+        switch (listState)
+        {
+            case ListState.Pack:
+                if (!Packmembers.Contains(ai))
+                    Packmembers.Add(ai);
+                ReassignIndices(Packmembers, (c, i) => c.SetPackIndex(i));
+                break;
+
+            case ListState.Hall:
+                if (!Hallmembers.Contains(ai))
+                    Hallmembers.Add(ai);
+                ReassignIndices(Hallmembers, (c, i) => c.SetHallIndex(i));
+                break;
+        }
+    }
+
+    public void RemoveFromList(AIController ai, ListState listState)
+    {
+        if (ai == null) return;
+
+        switch (listState)
+        {
+            case ListState.Pack:
+                if (Packmembers.Remove(ai))
+                    ReassignIndices(Packmembers, (c, i) => c.SetPackIndex(i));
+                break;
+
+            case ListState.Hall:
+                if (Hallmembers.Remove(ai))
+                    ReassignIndices(Hallmembers, (c, i) => c.SetHallIndex(i));
+                break;
+        }
+    }
+
+    private void ReassignIndices(List<AIController> group, System.Action<AIController, int> setter)
+    {
+        for (int i = 0; i < group.Count; i++)
+            setter(group[i], i);
+    }
 
 }

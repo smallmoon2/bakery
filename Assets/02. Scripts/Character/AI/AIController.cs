@@ -1,11 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Burst.Intrinsics;
 using UnityEngine;
 using UnityEngine.AI;
 
 public class AIController : MonoBehaviour
 {
-    public enum State { Pick, Pack, Table, Eat, Exit, hall }
+    public enum State { Pick, Pack, Table, Eat, Exit, Hall }
 
 
     [Header("Refs")]
@@ -13,10 +14,15 @@ public class AIController : MonoBehaviour
     public Animator anim;
     [SerializeField] private BreadBasket Basket;
     [SerializeField] private AIObjectController aIObjectController;
+
     [Header("Stack Check")]
     [SerializeField] private Transform handStackPoint;
 
-
+    [Header("Eat")]
+    public Transform[] EatPoint;
+    [SerializeField] private string eatTag = "Eat";
+    private bool goToEatPoint;
+    private bool eatingLogicStarted = false; // ← 중복 실행 방지
 
     [Header("Targets (Arrays)")]
     public Transform[] pickPoints;   // 줍기 후보들
@@ -58,6 +64,7 @@ public class AIController : MonoBehaviour
     public State state = State.Pick;
 
     // 내부 상태
+    public bool isHall;
     float timer;
     float targetMoveParam;
     bool prePhase;          // 현재 상태에서 경유지로 이동 중인지
@@ -81,7 +88,9 @@ public class AIController : MonoBehaviour
         breadCount = Random.Range(1, 4);
 
         ClaimPickSlot();
+        isHall = Random.value < 0.3f;
 
+        Debug.Log(isHall);
         Go(State.Pick);
         _lastState = state; // 초기 상태 동기화
     }
@@ -112,7 +121,17 @@ public class AIController : MonoBehaviour
 
                         pickList[pickIdx] = false;
 
-                        state = State.Pack;
+                        if (isHall)
+                        {
+                            GameManager.Instance.ai.AddToList(this, AIManager.ListState.Hall);
+                            state = State.Hall;
+                        }
+                        else
+                        {
+                            GameManager.Instance.ai.AddToList(this, AIManager.ListState.Pack);
+                            state = State.Pack;
+                        }
+
                     }
                     break;
                 }
@@ -125,22 +144,42 @@ public class AIController : MonoBehaviour
 
                     if (aIObjectController.BagFinish)
                     {
+                        GameManager.Instance.ai.RemoveFromList(this, AIManager.ListState.Pack);
                         state = State.Exit;
                     }
                     break;
                 }
-            case State.hall:
+            case State.Hall:
                 {
-                    var pre = GetPrePoint(State.hall);
+                    var pre = GetPrePoint(State.Hall);
                     var p = GetPoint(hallPoints, hallIdx);
                     MoveViaPreThen(pre, p);
                     if (!prePhase && Arrived()) FaceThenWaitNext(hallLook ?? p, packTime, State.Table);
+
+                    if (aIObjectController.BagFinish && GameManager.Instance.ai.isHallOpen && GameManager.Instance.ai.isTableempty)
+                    {
+                        Debug.Log("table 이동");
+                        GameManager.Instance.ai.RemoveFromList(this, AIManager.ListState.Hall);
+                        state = State.Table;
+                        GameManager.Instance.ai.isTableempty = false;
+                    }
+
                     break;
                 }
             case State.Table:
                 {
                     var pre = GetPrePoint(State.Table);
                     var p = GetPoint(tablePoints, tableIdx);
+
+                    if (goToEatPoint)
+                    {
+                        p = GetPoint(EatPoint, tableIdx);
+
+                        // ★ 한 번만 실행
+                        if (!eatingLogicStarted)
+                            StartCoroutine(EatingLogic());
+                    }
+
                     MoveViaPreThen(pre, p);
                     if (!prePhase && Arrived()) FaceThenWaitNext(tableLook ?? p, packTime, State.Eat);
                     break;
@@ -244,7 +283,7 @@ public class AIController : MonoBehaviour
         {
             case State.Pick: return prePickPoint;
             case State.Pack: return prePackPoint;
-            case State.hall: return preHallPoint;
+            case State.Hall: return preHallPoint;
             case State.Table: return preTablePoint;
             case State.Exit: return preExitPoint;
             default: return null;
@@ -370,6 +409,22 @@ public class AIController : MonoBehaviour
         }
     }
 
+    private IEnumerator EatingLogic()
+    {
+        eatingLogicStarted = true;
+
+        // 1초 후 isEating = true
+        yield return new WaitForSeconds(1f);
+        if (anim) anim.SetBool("isEating", true);
+
+        // 3초 후 isEating = false
+        yield return new WaitForSeconds(3f);
+        if (anim) anim.SetBool("isEating", false);
+
+        // 종료: Exit로 이동
+        Go(State.Exit);
+    }
+
     // 리스트를 지정 크기까지 false로 채워 확장
     private void EnsureListSize(List<bool> list, int size)
     {
@@ -382,4 +437,21 @@ public class AIController : MonoBehaviour
         }
     }
 
+    public void SetPackIndex(int idx)
+    {
+        packIdx = idx;
+    }
+    public void SetHallIndex(int idx)
+    {
+        hallIdx = idx;
+    }
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag(eatTag))
+        {
+            // Eat 트리거 밟으면 Table 단계에서 목표를 EatPoint로 강제
+            goToEatPoint = true;
+
+        }
+    }
 }

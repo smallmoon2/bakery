@@ -35,6 +35,8 @@ public class AIObjectController : MonoBehaviour
     private GameObject currentBag;
     private Coroutine bagCo;
 
+    private bool moneyCreated = false;
+
     private bool canStack;
     private bool canDrop;
     private float nextMove = 0f;
@@ -61,8 +63,20 @@ public class AIObjectController : MonoBehaviour
         if (canDrop && Time.time >= nextMove && stacking.Count > 0 && !isDropping &&
             GameManager.Instance && GameManager.Instance.ai && GameManager.Instance.ai.isCalculated)
         {
-            StartDropOne();
-            nextMove = Time.time + delay;
+            if (aIController.isHall)
+            {
+                if (!moneyCreated)
+                {
+                    GameManager.Instance.ai.Moneycreate(moneyTablePoint, aIController.breadCount * 5);
+                    BagFinish = true;
+                    moneyCreated = true;   // ¡ç ÇÑ¹ø¸¸
+                }
+            }
+            else
+            {
+                StartDropOne();
+                nextMove = Time.time + delay;
+            }
         }
 
         if (stacking.Count == aIController.breadCount && !isPicking)
