@@ -9,12 +9,18 @@ public class AIManager : MonoBehaviour
     
 
     public List<GameObject> TableMoney = new List<GameObject>();
+
+    public List<GameObject> TableMoney2 = new List<GameObject>();
+
+
     [SerializeField] private Transform TableMoneyPoint;
+    [SerializeField] public Transform tableMoneySpawn2;
 
     public enum ListState { Pack, Hall }
     [SerializeField] private List<AIController> Packmembers = new List<AIController>();
     [SerializeField] private List<AIController> Hallmembers = new List<AIController>();
 
+    public Transform tableMoneySpawn;
 
     public List<bool> Pick = new List<bool>();
     public List<bool> hall = new List<bool>();
@@ -32,6 +38,8 @@ public class AIManager : MonoBehaviour
 
     private float timer;
 
+    public int BakeryAicount = 0;
+
     [Header("Prefabs")]
     [SerializeField] private GameObject moneyPrefab;
     [SerializeField] private GameObject aiPrefab;
@@ -40,7 +48,7 @@ public class AIManager : MonoBehaviour
     private enum GridOrder { RowMajor, ColumnMajor }
     [SerializeField] private GridOrder order = GridOrder.RowMajor; // 기본: 세로 먼저
 
-    public void Moneycreate(Transform spawnRoot, int amount)
+    public void Moneycreate(Transform spawnRoot, int amount, int listIndex = 1)
     {
         if (moneyPrefab == null) { Debug.LogWarning("moneyPrefab 미할당"); return; }
         if (spawnRoot == null) { spawnRoot = TableMoneyPoint; }
@@ -48,33 +56,37 @@ public class AIManager : MonoBehaviour
 
         const int GRID_COLS = 3;
         const int GRID_ROWS = 3;
-        const float H_SPACING = 0.6f;   // 가로 (right)
-        const float V_SPACING = 0.9f;   // 세로 (forward)
+        const float H_SPACING = 0.5f;   // 가로 (right)
+        const float V_SPACING = 0.8f;   // 세로 (forward)
         const float HEIGHT_STEP = 0.3f; // 9개마다 층 높이
 
-        var list = TableMoney;
+        // ★ listIndex로 어느 리스트에 담을지 결정 (기본 1)
+        List<GameObject> list = (listIndex == 2) ? TableMoney2 : TableMoney;
+        if (list == null)
+        {
+            // 혹시 null이면 안전하게 초기화
+            list = new List<GameObject>();
+            if (listIndex == 2) TableMoney2 = list; else TableMoney = list;
+        }
 
         for (int i = 0; i < amount; i++)
         {
             int count = list.Count;
-            int perLayer = GRID_COLS * GRID_ROWS;   // 9
-            int layer = count / perLayer;           // 0,1,2...
-            int idx = count % perLayer;           // 0~8
+            int perLayer = GRID_COLS * GRID_ROWS; // 9
+            int layer = count / perLayer;         // 0,1,2...
+            int idx = count % perLayer;         // 0~8
 
             int row, col;
-
             switch (order)
             {
-                case GridOrder.RowMajor: // 가로 먼저: (0,0)->(0,1)->(0,2)->(1,0)...
+                case GridOrder.RowMajor:   // 가로 먼저
                     row = idx / GRID_COLS;
                     col = idx % GRID_COLS;
                     break;
-
-                case GridOrder.ColumnMajor: // 세로 먼저: (0,0)->(1,0)->(2,0)->(0,1)...
+                case GridOrder.ColumnMajor: // 세로 먼저
                     col = idx / GRID_ROWS;
                     row = idx % GRID_ROWS;
                     break;
-
                 default:
                     row = idx / GRID_COLS;
                     col = idx % GRID_COLS;
@@ -86,9 +98,8 @@ public class AIManager : MonoBehaviour
                 (spawnRoot.right * (col * H_SPACING)) +
                 (spawnRoot.forward * (row * V_SPACING));
 
-            // 부모 스케일 영향 피하려면: 부모 없이 생성 후 SetParent(true) 사용
             GameObject money = Instantiate(moneyPrefab, basePos + offset, spawnRoot.rotation);
-            money.transform.SetParent(spawnRoot, true);
+            money.transform.SetParent(spawnRoot, true); // 부모 스케일 영향 최소화
 
             list.Add(money);
         }
@@ -97,23 +108,34 @@ public class AIManager : MonoBehaviour
     private void Update()
     {
         timer += Time.deltaTime;
-        if (timer >= 0.5f)   // 0.25초마다 실행
+        if (timer >= 1f) // 1초마다
         {
             timer = 0f;
-            SpawnAIIfFree();
+
+            // 50% 확률로 소환
+            if (Random.value < 0.3f)
+            {
+                SpawnAIIfFree();
+            }
         }
     }
 
     private void SpawnAIIfFree()
     {
+        if (BakeryAicount >= 7)
+        {
+            return;
+        }
+
         for (int i = 0; i < Pick.Count; i++)
         {
             if (!Pick[i])
             {
                 var aiGO = Instantiate(aiPrefab, spawnPoints.position, spawnPoints.rotation);
                 aiGO.SetActive(true);
+                BakeryAicount++;
 
-                
+
                 break; // 한 번에 하나만 스폰
             }
         }

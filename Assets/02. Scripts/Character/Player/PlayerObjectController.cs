@@ -5,11 +5,17 @@ using UnityEngine;
 
 public class PlayerObjectController : MonoBehaviour
 {
+    // ===================== MONEY2 =====================
+    [Header("Money2")]
+    [SerializeField] private Transform MoneyPoint2;
+    [SerializeField] private Transform preMoneyPoint2;
+    [SerializeField] private string money2Tag = "Money2";   // ★ Money2 전용 태그
+
     // ===================== MONEY =====================
     [Header("Money")]
     [SerializeField] private Transform MoneyPoint;
     [SerializeField] private Transform preMoneyPoint;
-    [SerializeField] private string moneyTag = "Money";
+    [SerializeField] private string moneyTag = "Money";     // Money 전용 태그
 
     // ===================== MONEY USE =====================
     [Header("Money Use")]
@@ -20,7 +26,7 @@ public class PlayerObjectController : MonoBehaviour
     // ===================== OVEN (Bread Pick) =====================
     [Header("Oven")]
     [SerializeField] private BreadSpawner spawner;     // 오븐에서 꺼낼 빵 소스
-    [SerializeField] public Transform stackPoint;     // 손에 쌓일 기준점
+    [SerializeField] public Transform stackPoint;      // 손에 쌓일 기준점
     [SerializeField] private string pickUpTag = "Oven";
 
     // ===================== BASKET (Bread Drop) =====================
@@ -39,7 +45,7 @@ public class PlayerObjectController : MonoBehaviour
     [SerializeField] private int maxStack = 8;
 
     [Header("Drop Arc (No Prestack)")]
-    [SerializeField] private float ArcHeight = 1f; // 얼마나 위로 튀어오를지
+    [SerializeField] private float ArcHeight = 1f;   // 포물선 높이
     [SerializeField] private float ArcSpeed = 10f;  // 이동 속도(거리/초)
 
     // ===================== STATE =====================
@@ -49,7 +55,11 @@ public class PlayerObjectController : MonoBehaviour
 
     private bool canStack;
     private bool canDrop;
-    private bool canMoney;                 // Money 존 안에 있을 때
+
+    private bool canMoney;                  // Money 존 안
+    private bool canMoney2;                 // Money2 존 안
+    private bool canMoneyUse;               // MoneyUse 존 안
+
     private float nextMove = 0f;
 
     // 동시 진행 방지 (빵 전용)
@@ -58,13 +68,11 @@ public class PlayerObjectController : MonoBehaviour
 
     // 머니 버스트 실행 중복 방지
     private bool isMoneyBurstRunning = false;
-
-    private bool canMoneyUse;                  // MoneyUse 존 안에 있을 때
+    private bool isMoney2BurstRunning = false;
     private bool isMoneyUseBurstRunning = false;
 
     private void Update()
     {
-
         // 빵 픽업
         if (canStack && Time.time >= nextMove && stacking.Count < maxStack && !isPicking)
         {
@@ -79,18 +87,23 @@ public class PlayerObjectController : MonoBehaviour
             nextMove = Time.time + delay;
         }
 
-        // 돈 픽업: 0.05초 간격으로 병렬 시작 (canMoney인 동안 유지)
+        // 돈(Money) 픽업: 0.05초 간격으로 병렬 시작 (canMoney인 동안 유지)
         if (canMoney && !isMoneyBurstRunning)
         {
             StartCoroutine(MoneyBurstRoutine());
         }
 
+        // 돈(Money2) 픽업
+        if (canMoney2 && !isMoney2BurstRunning)
+        {
+            StartCoroutine(Money2BurstRoutine());
+        }
+
+        // 돈 사용
         if (canMoneyUse && !isMoneyUseBurstRunning)
         {
             StartCoroutine(MoneyUseBurstRoutine());
         }
-
-
     }
 
     // ===================== BREAD: PICKUP =====================
@@ -120,62 +133,61 @@ public class PlayerObjectController : MonoBehaviour
         StartCoroutine(PickupOneRoutine(picked, slotIndex));
     }
 
-private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
-{
-    isPicking = true;
-    EnsureKinematic(picked);
-    var t = picked.transform;
-
-    if (!stackPoint)
+    private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
     {
+        isPicking = true;
+        EnsureKinematic(picked);
+        var t = picked.transform;
+
+        if (!stackPoint)
+        {
+            isPicking = false;
+            yield break;
+        }
+
+        // 시작 스냅샷
+        Vector3 startPos = t.position;
+        Quaternion startRot = t.rotation;
+
+        // 시간 계산(초기 거리 기준)  타겟이 움직여도 duration은 고정
+        float dist = Vector3.Distance(startPos, stackPoint.position + Vector3.up * (stepHeight * slotIndex));
+        float duration = Mathf.Max(0.05f, dist / Mathf.Max(0.01f, ArcSpeed));
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            if (!stackPoint) break; // 중간에 타겟 사라지면 탈출
+
+            float u = elapsed / duration;   // 0..1
+            Vector3 endPos = stackPoint.position + Vector3.up * (stepHeight * slotIndex);
+            Quaternion endRot = stackPoint.rotation;
+
+            // 직선 보간 + 포물선 오프셋(최대 ArcHeight, 중간에서 피크)
+            Vector3 line = Vector3.Lerp(startPos, endPos, u);
+            float arc = 4f * u * (1f - u) * ArcHeight;   // 0→peak→0
+            Vector3 pos = line + Vector3.up * arc;
+
+            t.position = pos;
+            t.rotation = Quaternion.Slerp(startRot, endRot, u);
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // 마지막 스냅 & 부모 설정(월드값 유지해서 스케일 깨짐 방지)
+        if (stackPoint)
+        {
+            Vector3 endPos = stackPoint.position + Vector3.up * (stepHeight * slotIndex);
+            Quaternion endRot = stackPoint.rotation;
+
+            t.position = endPos;
+            t.rotation = endRot;
+            t.SetParent(stackPoint, true); // worldPositionStays = true
+        }
+
+        stacking.Push(picked);
         isPicking = false;
-        yield break;
     }
-
-    // 시작 스냅샷
-    Vector3    startPos = t.position;
-    Quaternion startRot = t.rotation;
-
-    // 시간 계산(초기 거리 기준)  타겟이 움직여도 duration은 고정
-    float dist     = Vector3.Distance(startPos, stackPoint.position + Vector3.up * (stepHeight * slotIndex));
-    float duration = Mathf.Max(0.05f, dist / Mathf.Max(0.01f, ArcSpeed));
-
-    float elapsed = 0f;
-    while (elapsed < duration)
-    {
-        if (!stackPoint) break; // 중간에 타겟 사라지면 탈출
-
-        float u  = elapsed / duration;   // 0..1
-        // 선형으로 현재 타겟을 따라감 (매 프레임 최신 타겟 반영)
-        Vector3   endPos = stackPoint.position + Vector3.up * (stepHeight * slotIndex);
-        Quaternion endRot = stackPoint.rotation;
-
-        // 직선 보간 + 포물선 오프셋(최대 ArcHeight, 중간에서 피크)
-        Vector3 line = Vector3.Lerp(startPos, endPos, u);
-        float   arc  = 4f * u * (1f - u) * ArcHeight;   // 0→peak→0
-        Vector3 pos  = line + Vector3.up * arc;         // 필요하면 stackPoint.up로 바꿔도 됨
-
-        t.position = pos;
-        t.rotation = Quaternion.Slerp(startRot, endRot, u);
-
-        elapsed += Time.deltaTime;
-        yield return null;
-    }
-
-    // 마지막 스냅 & 부모 설정(월드값 유지해서 스케일 깨짐 방지)
-    if (stackPoint)
-    {
-        Vector3   endPos = stackPoint.position + Vector3.up * (stepHeight * slotIndex);
-        Quaternion endRot = stackPoint.rotation;
-
-        t.position = endPos;
-        t.rotation = endRot;
-        t.SetParent(stackPoint, true); // worldPositionStays = true
-    }
-
-    stacking.Push(picked);
-    isPicking = false;
-}
 
     // ===================== BREAD: DROP =====================
     private void StartDropOne()
@@ -209,7 +221,6 @@ private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
             isDropping = false;
             yield break;
         }
-
 
         // 시작/도착 스냅샷
         Vector3 startPos = t.position;
@@ -286,7 +297,6 @@ private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
                     target = go;
                     break;
                 }
-                // null 이면 계속 다음으로
             }
 
             if (target != null)
@@ -353,8 +363,101 @@ private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
 
         // 필요 시 제거/숨김 처리
         money.SetActive(false);
-        // 또는 t.gameObject.SetActive(false);
     }
+
+    // ===================== MONEY2: BURST PICKUP =====================
+    private IEnumerator Money2BurstRoutine()
+    {
+        isMoney2BurstRunning = true;
+        const float interval = 0.05f;
+
+        if (GameManager.Instance == null || GameManager.Instance.ai == null)
+        {
+            isMoney2BurstRunning = false;
+            yield break;
+        }
+
+        var list = GameManager.Instance.ai.TableMoney2; // ★ 두 번째 리스트
+
+        while (canMoney2) // Money2 존 안에 있는 동안만
+        {
+            if (list == null || list.Count == 0) break;
+
+            GameObject target = null;
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                var go = list[i];
+                list.RemoveAt(i);                 // pop
+                GameManager.Instance.myMoney++;   // 필요 없으면 제거 가능
+                if (go != null)
+                {
+                    target = go;
+                    break;
+                }
+            }
+
+            if (target != null)
+            {
+                StartCoroutine(PickupMoney2Routine(target));
+            }
+            else
+            {
+                if (list == null || list.Count == 0) break;
+            }
+
+            yield return new WaitForSeconds(interval);
+        }
+
+        isMoney2BurstRunning = false;
+    }
+
+    private IEnumerator PickupMoney2Routine(GameObject money)
+    {
+        EnsureKinematic(money);
+        var t = money.transform;
+        const float EPS = 0.0001f;
+
+        if (!MoneyPoint2)
+        {
+            Debug.LogWarning("[PlayerObjectController] MoneyPoint2 미할당");
+            yield break;
+        }
+
+        // 1) 현재 위치 → preMoneyPoint2 (없으면 MoneyPoint2)
+        while (true)
+        {
+            Vector3 prePos = preMoneyPoint2 ? preMoneyPoint2.position : MoneyPoint2.position;
+            Quaternion preRot = MoneyPoint2.rotation;
+
+            t.position = Vector3.MoveTowards(t.position, prePos, stackMoveSpeed * Time.deltaTime);
+            t.rotation = Quaternion.Slerp(t.rotation, preRot, rotLerp * Time.deltaTime);
+
+            if ((t.position - prePos).sqrMagnitude <= EPS) break;
+            yield return null;
+        }
+
+        // 2) preMoneyPoint2 → MoneyPoint2 정확히 같은 자리(겹침)
+        while (true)
+        {
+            Vector3 targetPos = MoneyPoint2.position;
+            Quaternion targetRot = MoneyPoint2.rotation;
+
+            t.position = Vector3.MoveTowards(t.position, targetPos, stackMoveSpeed * Time.deltaTime);
+            t.rotation = Quaternion.Slerp(t.rotation, targetRot, rotLerp * Time.deltaTime);
+
+            if ((t.position - targetPos).sqrMagnitude <= EPS) break;
+            yield return null;
+        }
+
+        // 3) 부모/스냅(겹치기)
+        t.SetParent(MoneyPoint2, false);
+        t.localPosition = Vector3.zero;
+        t.localRotation = Quaternion.identity;
+
+        money.SetActive(false);
+    }
+
+    // ===================== MONEY USE: BURST =====================
     private IEnumerator MoneyUseBurstRoutine()
     {
         isMoneyUseBurstRunning = true;
@@ -387,24 +490,18 @@ private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
                     // 비활성 상태였다면 활성화
                     if (!money.activeSelf) money.SetActive(true);
 
-
-
                     openLock.decreaseLockCount();
                     GameManager.Instance.myMoney--;
                     StartCoroutine(UseMoneyMoveRoutine(money));
-
-
-                    // 병렬 이동 시작
-
                 }
             }
-            
 
             yield return new WaitForSeconds(interval);
         }
 
         isMoneyUseBurstRunning = false;
     }
+
     private IEnumerator UseMoneyMoveRoutine(GameObject money)
     {
         EnsureKinematic(money);
@@ -448,10 +545,7 @@ private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
         t.localPosition = Vector3.zero;
         t.localRotation = Quaternion.identity;
 
-
         money.SetActive(false);
-        // ※ 여기서 실제 사용 처리가 필요하면(소모/카운트 차감 등) 추가:
-        // ex) GameManager.Instance.myMoney--, 이펙트/사운드, 풀에 반납 등
     }
 
     // ===================== TRIGGERS =====================
@@ -459,19 +553,23 @@ private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
     {
         if (other.CompareTag(pickUpTag)) canStack = true;
         if (other.CompareTag(dropOffTag)) canDrop = true;
-        if (other.CompareTag(moneyTag)) canMoney = true;       // "Money"
+
+        if (other.CompareTag(moneyTag)) canMoney = true;  // "Money"
+        if (other.CompareTag(money2Tag)) canMoney2 = true;  // "Money2"
+
         if (other.CompareTag(moneyUseTag))
         {
-            canMoneyUse = true;       // "MoneyUse"
+            canMoneyUse = true;
             var found = other.GetComponent<OpenLock>()
-         ?? other.GetComponentInParent<OpenLock>()
-         ?? other.GetComponentInChildren<OpenLock>();
+                   ?? other.GetComponentInParent<OpenLock>()
+                   ?? other.GetComponentInChildren<OpenLock>();
 
             if (found != null)
             {
                 openLock = found;
             }
         }
+
         if (other.CompareTag("trashClear"))
         {
             var ai = GameManager.Instance != null ? GameManager.Instance.ai : null;
@@ -481,9 +579,9 @@ private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
                 ai.Trash = null; // 참조도 정리
                 var chair = ai.Chair;
                 chair.transform.eulerAngles = new Vector3(
-                chair.transform.eulerAngles.x,
-                chair.transform.eulerAngles.y - 45f,
-                chair.transform.eulerAngles.z
+                    chair.transform.eulerAngles.x,
+                    chair.transform.eulerAngles.y - 45f,
+                    chair.transform.eulerAngles.z
                 );
             }
             else
@@ -491,15 +589,17 @@ private IEnumerator PickupOneRoutine(GameObject picked, int slotIndex)
                 Debug.LogWarning("[AIObjectController] ai.Trash 가 없거나 이미 제거되었습니다.");
             }
         }
-
     }
 
     private void OnTriggerExit(Collider other)
     {
         if (other.CompareTag(pickUpTag)) canStack = false;
         if (other.CompareTag(dropOffTag)) canDrop = false;
-        if (other.CompareTag(moneyTag)) canMoney = false;      // "Money"
-        if (other.CompareTag(moneyUseTag)) canMoneyUse = false;      // "MoneyUse"
+
+        if (other.CompareTag(moneyTag)) canMoney = false; // "Money"
+        if (other.CompareTag(money2Tag)) canMoney2 = false; // "Money2"
+
+        if (other.CompareTag(moneyUseTag)) canMoneyUse = false; // "MoneyUse"
     }
 
     // ===================== UTIL =====================

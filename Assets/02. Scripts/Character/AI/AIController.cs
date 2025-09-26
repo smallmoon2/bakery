@@ -62,6 +62,7 @@ public class AIController : MonoBehaviour
     [SerializeField] private GameObject emojiSmileUI;
     [SerializeField] private GameObject payUI;
     [SerializeField] private GameObject tableUI;
+    [SerializeField] private GameObject oFFUI;
     [SerializeField] private TextMeshProUGUI breadCountText;
 
     [Header("Durations (sec)")]
@@ -83,6 +84,7 @@ public class AIController : MonoBehaviour
     bool waitInit;          // FaceThenWaitNext 타이머 초기화 여부
     private State _lastState; // 외부에서 state 직접 변경 감지용
     public int breadCount;
+    private bool exit2MoneySpawned = false;
 
     // 도착+바라봄+대기 완료 신호
     public bool readyForNext { get; private set; }
@@ -97,10 +99,11 @@ public class AIController : MonoBehaviour
     void Start()
     {
         Reset();
+
         breadCount = Random.Range(1, 4);
 
         ClaimPickSlot();
-        isHall = Random.value < 0.4f;
+        isHall = Random.value < 0.35f;
 
         Debug.Log(isHall);
         Go(State.Pick);
@@ -109,6 +112,8 @@ public class AIController : MonoBehaviour
 
     void Update()
     {
+        breadCountText.text = (breadCount - aIObjectController.stacking.Count).ToString(); 
+
         // 외부에서 state를 직접 바꿨을 때도 항상 진입 처리(+ ready 플래그 리셋)
         if (state != _lastState)
         {
@@ -124,7 +129,7 @@ public class AIController : MonoBehaviour
                     var p = GetPoint(pickPoints, pickIdx);
                     MoveViaPreThen(pre, p);
                     if (!prePhase && Arrived()) FaceThenWaitNext(pickLook ?? p, pickTime, State.Pack);
-                    Debug.Log(readyForNext);
+
                     if (readyForNext)
                     {
                         ShowOnly(breadUI);
@@ -150,6 +155,7 @@ public class AIController : MonoBehaviour
 
             case State.Pack:
                 {
+                    ShowOnly(payUI);
                     var pre = GetPrePoint(State.Pack);
                     var p = GetPoint(packPoints, packIdx);
                     MoveViaPreThen(pre, p);
@@ -165,13 +171,21 @@ public class AIController : MonoBehaviour
 
             case State.Hall:
                 {
+                    ShowOnly(payUI);
                     var pre = GetPrePoint(State.Hall);
                     var p = GetPoint(hallPoints, hallIdx);
                     MoveViaPreThen(pre, p);
                     if (!prePhase && Arrived()) FaceThenWaitNext(hallLook ?? p, packTime, State.Table);
 
+
+                    if (readyForNext && aIObjectController.BagFinish)
+                    {
+                        ShowOnly(tableUI);
+                    }
+
                     if (aIObjectController.BagFinish && GameManager.Instance.ai.isHallOpen && GameManager.Instance.ai.isTableempty && GameManager.Instance.ai.Trash == null)
                     {
+                        ShowOnly(oFFUI);
                         Debug.Log("table 이동");
                         GameManager.Instance.ai.RemoveFromList(this, AIManager.ListState.Hall);
                         state = State.Table;
@@ -204,35 +218,58 @@ public class AIController : MonoBehaviour
 
             case State.Exit:
                 {
+                    ShowOnly(emojiSmileUI);
+
                     var pre = GetPrePoint(State.Exit);
                     var p = GetPoint(exitPoints, exitIdx);
+
                     MoveViaPreThen(pre, p);
+
+                    // 도착하면 잠깐 바라보고(=타이머) readyForNext 세팅
                     if (!prePhase && Arrived())
+                        FaceThenWaitNext(exitLook ?? p, packTime, State.Exit);
+
+                    // 대기 끝나면 제거
+                    if (readyForNext)
                     {
-                        if (FaceTowards(exitLook ?? p))
-                        {
-                            agent.isStopped = true;
-                            agent.updateRotation = true;
-                        }
+                        GameManager.Instance.ai.BakeryAicount--;
+                        Destroy(gameObject);
                     }
                     break;
                 }
 
             case State.Exit2:
                 {
-                    var pre = GetPrePoint(State.Exit2);
-                    var p = GetPoint(exit2Points, exit2Idx); // ★ Exit2 전용 포인트/인덱스 사용
-                    MoveViaPreThen(pre, p);
-                    if (!prePhase && Arrived())
+                    if (!exit2MoneySpawned)
                     {
-                        if (FaceTowards(exit2Look ?? p)) // ★ Exit2 전용 룩 타겟 사용(없으면 p)
+                        exit2MoneySpawned = true;
+                        Debug.Log("머니호출2 (once)");
+                        var gm = GameManager.Instance;
+                        if (gm != null && gm.ai != null && gm.ai.tableMoneySpawn2 != null)
                         {
-                            agent.isStopped = true;
-                            agent.updateRotation = true;
+                            gm.ai.Moneycreate(gm.ai.tableMoneySpawn2, 10, 2);
                         }
+                    }
+
+                    ShowOnly(emojiSmileUI);
+
+                    var pre = GetPrePoint(State.Exit2);
+                    var p = GetPoint(exit2Points, exit2Idx);
+
+                    MoveViaPreThen(pre, p);
+
+                    // Exit2도 동일하게 처리
+                    if (!prePhase && Arrived())
+                        FaceThenWaitNext(exit2Look ?? p, packTime, State.Exit2);
+
+                    if (readyForNext)
+                    {
+                        GameManager.Instance.ai.BakeryAicount--;
+                        Destroy(gameObject);
                     }
                     break;
                 }
+
         }
 
         // 이동 애니메이션 보간
@@ -485,7 +522,7 @@ public class AIController : MonoBehaviour
     public void ShowOnly(GameObject target)
     {
         // 1) 네 개를 배열로 묶고
-        GameObject[] items = new GameObject[] { breadUI, emojiSmileUI, payUI, tableUI };
+        GameObject[] items = new GameObject[] { breadUI, emojiSmileUI, payUI, tableUI, oFFUI };
 
         // 2) 하나씩 꺼내서
         for (int i = 0; i < items.Length; i++)

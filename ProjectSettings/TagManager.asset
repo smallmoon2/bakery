@@ -12,6 +12,7 @@ TagManager:
   - MoneyUse
   - Eat
   - trashClear
+  - Money2
   layers:
   - Default
   - TransparentFX

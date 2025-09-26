@@ -1,37 +1,46 @@
 using UnityEngine;
 
 [ExecuteAlways]
-public class FreezeWorldRotation : MonoBehaviour
+public class AIUIController : MonoBehaviour
 {
-    [Tooltip("체크하면 부모가 회전해도 이 오브젝트의 월드 회전은 고정됩니다.")]
-    public bool freeze = true;
+    [Tooltip("비우면 부모를 자동 사용")]
+    public Transform target;
 
-    [Tooltip("OnEnable 시 현재 회전을 자동으로 잠급니다.")]
+    [Tooltip("OnEnable 시 현재 회전을 고정한다")]
     public bool autoCaptureOnEnable = true;
 
-    [SerializeField, Tooltip("잠글 월드 회전(편집용 표시)")]
-    private Vector3 lockedEuler;
-
+    [SerializeField] private Vector3 lockedEuler; // 표시용
     private Quaternion lockedRot;
 
     void OnEnable()
     {
-        if (autoCaptureOnEnable) LockToCurrent();
-        else lockedRot = Quaternion.Euler(lockedEuler);
-    }
+        if (!target) target = transform.parent;
+        if (!target) return;
 
-    // 현재 회전을 잠그기(컨텍스트 메뉴로 호출 가능)
-    [ContextMenu("Lock → Current World Rotation")]
-    public void LockToCurrent()
-    {
-        lockedRot = transform.rotation;              // 월드 회전 저장
-        lockedEuler = transform.rotation.eulerAngles;  // 인스펙터 표시용
+        // 회전 고정값을 현재 값으로 캡처하거나, 저장된 값 사용
+        lockedRot = autoCaptureOnEnable ? transform.rotation : Quaternion.Euler(lockedEuler);
+        lockedEuler = lockedRot.eulerAngles;
+
+        // ★ 위치 오프셋을 0으로: 부모 위치 = 내 위치
+        transform.position = target.position;
     }
 
     void LateUpdate()
     {
-        if (!freeze) return;
-        // 부모가 어떻게 회전해도 월드 회전 고정
+        if (!target) target = transform.parent;
+        if (!target) return;
+
+        // ★ 부모 '위치'만 따라감 (같은 자리)
+        transform.position = target.position;
+
+        // ★ 회전은 항상 고정
         transform.rotation = lockedRot;
+    }
+
+    [ContextMenu("Lock → Current World Rotation")]
+    public void LockToCurrentRotation()
+    {
+        lockedRot = transform.rotation;
+        lockedEuler = transform.rotation.eulerAngles;
     }
 }

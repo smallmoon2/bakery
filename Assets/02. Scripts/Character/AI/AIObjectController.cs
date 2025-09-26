@@ -53,7 +53,7 @@ public class AIObjectController : MonoBehaviour
     [SerializeField] private int maxStack = 8;
 
     // ───────────────────────────────── Runtime
-    private readonly Stack<GameObject> stacking = new Stack<GameObject>(); // 손에 든 것들
+    public readonly Stack<GameObject> stacking = new Stack<GameObject>(); // 손에 든 것들
     private GameObject currentBag;
     private Coroutine bagCo;
 
@@ -70,7 +70,6 @@ public class AIObjectController : MonoBehaviour
     public bool BagFinish;
     public bool DropFinish;
 
-    [SerializeField] private bool debugDropGate = false;
 
     // ───────────────────────────────── Unity Loop
     private void Update()
@@ -80,7 +79,6 @@ public class AIObjectController : MonoBehaviour
 
         if (aiController.eatingLogicSFinshed && !trashSpawned)  // ← 사용자가 말한 변수명 그대로
         {
-            Debug.Log("음식처리");
             StartCoroutine(ReplaceFoodWithTrashOnce());
         }
 
@@ -99,49 +97,7 @@ public class AIObjectController : MonoBehaviour
         bool cond_hasAI = cond_hasGM && gm.ai != null;
         bool cond_isCalc = cond_hasAI && gm.ai.isCalculated;
 
-        if (debugDropGate)
-        {
-            Debug.Log(
-                $"[DropGate] canDrop={cond_canDrop} | timeOK={cond_timeOK} (t={Time.time:F2}, next={nextMove:F2}) | " +
-                $"hasStack={cond_hasStack} (count={stackCnt}) | notDropping={cond_notDropping} | " +
-                $"GM={(cond_hasGM ? "OK" : "NULL")} AI={(cond_hasAI ? "OK" : "NULL")} isCalculated={(cond_hasAI ? gm.ai.isCalculated.ToString() : "n/a")}"
-            );
-        }
-        // ────────────────────────────────────────────────────
-
-        if (cond_canDrop && cond_timeOK && cond_hasStack && cond_notDropping && cond_isCalc)
-        {
-            if (aiController.isHall)
-            {
-                if (debugDropGate) Debug.Log($"[DropGate] PASS → Hall 분기 (moneyCreated={moneyCreated})");
-                if (!moneyCreated)
-                {
-                    gm.ai.Moneycreate(moneyPoint, aiController.breadCount * 5);
-                    BagFinish = true;
-                    moneyCreated = true;
-                }
-            }
-            else
-            {
-                if (debugDropGate) Debug.Log("[DropGate] PASS → Table 드롭 분기 StartDropOne()");
-                StartDropOne();
-                nextMove = Time.time + actionDelay;
-            }
-        }
-        else
-        {
-            // 어떤 조건이 막았는지 상세 경고
-            if (debugDropGate)
-            {
-                if (!cond_canDrop) Debug.LogWarning("[DropGate] BLOCKED: canDrop == false (Table 트리거 안에 아님?)");
-                if (!cond_timeOK) Debug.LogWarning($"[DropGate] BLOCKED: Time.time < nextMove ({Time.time:F2} < {nextMove:F2})");
-                if (!cond_hasStack) Debug.LogWarning("[DropGate] BLOCKED: stacking.Count == 0 (손에 물건 없음)");
-                if (!cond_notDropping) Debug.LogWarning("[DropGate] BLOCKED: isDropping == true (드롭 중)");
-                if (!cond_hasGM) Debug.LogWarning("[DropGate] BLOCKED: GameManager.Instance == null");
-                else if (!cond_hasAI) Debug.LogWarning("[DropGate] BLOCKED: GameManager.Instance.ai == null");
-                else if (!cond_isCalc) Debug.LogWarning("[DropGate] BLOCKED: ai.isCalculated == false");
-            }
-        }
+      
         int maxCarry = Mathf.Min(maxStack, aiController.breadCount);
 
         // Basket → 손(스택)
@@ -157,7 +113,7 @@ public class AIObjectController : MonoBehaviour
         {
             if (aiController.isHall)
             {
-                Debug.Log(!moneyCreated);
+
                 if (!moneyCreated)
                 {
                     GameManager.Instance.ai.Moneycreate(moneyPoint, aiController.breadCount * 5);
@@ -297,7 +253,7 @@ public class AIObjectController : MonoBehaviour
         t.localPosition = Vector3.zero;
         t.localRotation = Quaternion.identity;
 
-        tableDrop.breads.Push(bread);
+        //tableDrop.breads.Push(bread);
         Destroy(bread);
 
         isDropping = false;
