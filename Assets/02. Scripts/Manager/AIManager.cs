@@ -71,6 +71,8 @@ public class AIManager : MonoBehaviour
 
         for (int i = 0; i < amount; i++)
         {
+            GameManager.Instance.ui.SetGuide(UIManager.Guidestate.GetMoney);
+
             int count = list.Count;
             int perLayer = GRID_COLS * GRID_ROWS; // 9
             int layer = count / perLayer;         // 0,1,2...

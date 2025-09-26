@@ -361,6 +361,9 @@ public class PlayerObjectController : MonoBehaviour
         t.localPosition = Vector3.zero;
         t.localRotation = Quaternion.identity;
 
+        Debug.Log("테이블이동");
+        GameManager.Instance.ui.SetGuide(UIManager.Guidestate.HallTable);
+
         // 필요 시 제거/숨김 처리
         money.SetActive(false);
     }
@@ -476,7 +479,11 @@ public class PlayerObjectController : MonoBehaviour
             if (int.Parse(openLock.lockCounttext.text) > 0)
             {
                 // MoneyPoint 밑에 자식(돈) 없으면 종료
-                if (MoneyPoint.childCount == 0) break;
+                if (MoneyPoint.childCount == 0)
+                {
+
+                    break;
+                }
 
                 // 끝(가장 마지막) 자식을 꺼냄
                 Transform child = MoneyPoint.GetChild(MoneyPoint.childCount - 1);
@@ -492,6 +499,8 @@ public class PlayerObjectController : MonoBehaviour
 
                     openLock.decreaseLockCount();
                     GameManager.Instance.myMoney--;
+
+
                     StartCoroutine(UseMoneyMoveRoutine(money));
                 }
             }
@@ -551,7 +560,11 @@ public class PlayerObjectController : MonoBehaviour
     // ===================== TRIGGERS =====================
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag(pickUpTag)) canStack = true;
+        if (other.CompareTag(pickUpTag))
+        {
+            GameManager.Instance.ui.SetGuide(UIManager.Guidestate.Basket);
+            canStack = true;
+        }
         if (other.CompareTag(dropOffTag)) canDrop = true;
 
         if (other.CompareTag(moneyTag)) canMoney = true;  // "Money"
@@ -572,9 +585,12 @@ public class PlayerObjectController : MonoBehaviour
 
         if (other.CompareTag("trashClear"))
         {
+            
             var ai = GameManager.Instance != null ? GameManager.Instance.ai : null;
             if (ai != null && ai.Trash != null)
             {
+                Debug.Log("넥스트로 이동");
+                GameManager.Instance.ui.SetGuide(UIManager.Guidestate.NextContiune);
                 Destroy(ai.Trash);
                 ai.Trash = null; // 참조도 정리
                 var chair = ai.Chair;
@@ -595,11 +611,13 @@ public class PlayerObjectController : MonoBehaviour
     {
         if (other.CompareTag(pickUpTag))
         {
-            GameManager.Instance.ui.SetGuide(UIManager.Guidestate.Basket);
             canStack = false;
         }
-        if (other.CompareTag(dropOffTag)) canDrop = false;
-
+        if (other.CompareTag(dropOffTag))
+        {
+            GameManager.Instance.ui.SetGuide(UIManager.Guidestate.PayTable);
+            canDrop = false;
+        }
         if (other.CompareTag(moneyTag)) canMoney = false; // "Money"
         if (other.CompareTag(money2Tag)) canMoney2 = false; // "Money2"
 

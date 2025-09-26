@@ -186,7 +186,7 @@ public class AIController : MonoBehaviour
                     if (aIObjectController.BagFinish && GameManager.Instance.ai.isHallOpen && GameManager.Instance.ai.isTableempty && GameManager.Instance.ai.Trash == null)
                     {
                         ShowOnly(oFFUI);
-                        Debug.Log("table 이동");
+
                         GameManager.Instance.ai.RemoveFromList(this, AIManager.ListState.Hall);
                         state = State.Table;
                         GameManager.Instance.ai.isTableempty = false;
@@ -478,13 +478,18 @@ public class AIController : MonoBehaviour
     {
         eatingLogicStarted = true;
 
-        // 1초 후 isEating = true
+        if (agent) agent.baseOffset = agent.baseOffset + 0.5f;
+
+        // 1초 후 애니 시작
         yield return new WaitForSeconds(1f);
         if (anim) anim.SetBool("isEating", true);
 
-        // 6초 후 isEating = false
+        // 먹는 시간(여기선 6초)
         yield return new WaitForSeconds(6f);
         if (anim) anim.SetBool("isEating", false);
+
+        // 원래 높이로 복귀
+        if (agent) agent.baseOffset = agent.baseOffset - 0.5f;
 
         eatingLogicSFinshed = true;
 

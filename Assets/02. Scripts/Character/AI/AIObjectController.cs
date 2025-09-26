@@ -489,9 +489,15 @@ public class AIObjectController : MonoBehaviour
 
         // 자식들 제거
         foreach (var c in children)
-            if (c) Destroy(c.gameObject);
+            if (c)
+            {
 
+                Destroy(c.gameObject);
+            }
+        Debug.Log("쓰레기 생성");
         // 쓰레기 단 1개 생성
+        GameManager.Instance.ui.SetGuideActive(true);
+        GameManager.Instance.ui.SetGuide(UIManager.Guidestate.trashTable);
         GameManager.Instance.ai.Trash = Instantiate(trashPrefab, spawnPos, spawnRot, foodPoint);
         GameManager.Instance.ai.Chair = chair;
         chair.transform.eulerAngles = new Vector3(

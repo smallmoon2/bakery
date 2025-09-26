@@ -24,6 +24,7 @@ public class OpenLock : MonoBehaviour
     }
     public void Open()
     {
+        GameManager.Instance.ui.SetGuideActive(false);
         GameManager.Instance.ai.isHallOpen = true;
         unlockPrefab.SetActive(true);
         lockPrefab.SetActive(false);
