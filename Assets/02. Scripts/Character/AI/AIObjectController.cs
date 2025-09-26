@@ -494,7 +494,7 @@ public class AIObjectController : MonoBehaviour
 
                 Destroy(c.gameObject);
             }
-        Debug.Log("쓰레기 생성");
+
         // 쓰레기 단 1개 생성
         GameManager.Instance.ui.SetGuideActive(true);
         GameManager.Instance.ui.SetGuide(UIManager.Guidestate.trashTable);

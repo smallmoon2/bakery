@@ -181,6 +181,7 @@ public class AIController : MonoBehaviour
                     if (readyForNext && aIObjectController.BagFinish)
                     {
                         ShowOnly(tableUI);
+                        GameManager.Instance.ActivateHallTableCam();
                     }
 
                     if (aIObjectController.BagFinish && GameManager.Instance.ai.isHallOpen && GameManager.Instance.ai.isTableempty && GameManager.Instance.ai.Trash == null)

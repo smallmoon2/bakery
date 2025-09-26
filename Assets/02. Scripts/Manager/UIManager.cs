@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -16,6 +17,9 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Transform hallTableguide;
     [SerializeField] private Transform trashTableguide;   // ← 추가
     [SerializeField] private Transform nextContiuneguide;
+
+
+    [SerializeField] private GameObject VFX_Clean;
 
     private readonly HashSet<Guidestate> used = new HashSet<Guidestate>();
 
@@ -54,9 +58,27 @@ public class UIManager : MonoBehaviour
     {
         if (!arrowguide) return;
         arrowguide.SetActive(on);
-        Debug.Log("오브젝트 활설화 여부");
-        Debug.Log(on);
     }
     // 필요하면 진행상태 초기화
+
+    public void trashClean(bool on)
+    {
+        if (!VFX_Clean) return;
+
+
+        StartCoroutine(CleanVFXPulse(2f));
+
+    }
+
+    private IEnumerator CleanVFXPulse(float seconds)
+    {
+        // 필요 시 재생 보장(이미 켜져 있었다면 리셋)
+        VFX_Clean.SetActive(false);
+        VFX_Clean.SetActive(true);
+
+        yield return new WaitForSeconds(seconds);
+
+        VFX_Clean.SetActive(false);
+    }
     public void ResetGuides() => used.Clear();
 }

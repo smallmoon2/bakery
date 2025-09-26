@@ -361,7 +361,6 @@ public class PlayerObjectController : MonoBehaviour
         t.localPosition = Vector3.zero;
         t.localRotation = Quaternion.identity;
 
-        Debug.Log("테이블이동");
         GameManager.Instance.ui.SetGuide(UIManager.Guidestate.HallTable);
 
         // 필요 시 제거/숨김 처리
@@ -556,6 +555,33 @@ public class PlayerObjectController : MonoBehaviour
 
         money.SetActive(false);
     }
+    private IEnumerator BumpYThenDestroy(GameObject go, float dy = 0.5f, float upTime = 0.12f, float downTime = 0.18f)
+    {
+        if (!go) yield break;
+
+        Transform tr = go.transform;
+        Vector3 start = tr.position;
+        Vector3 peak = start + Vector3.up * dy;
+
+        float t = 0f;
+        while (t < upTime && go)
+        {
+            t += Time.deltaTime;
+            tr.position = Vector3.Lerp(start, peak, t / upTime);
+            yield return null;
+        }
+
+        t = 0f;
+        while (t < downTime && go)
+        {
+            t += Time.deltaTime;
+            tr.position = Vector3.Lerp(peak, start, t / downTime);
+            yield return null;
+        }
+
+        if (go) Destroy(go);
+    }
+
 
     // ===================== TRIGGERS =====================
     private void OnTriggerEnter(Collider other)
@@ -589,9 +615,18 @@ public class PlayerObjectController : MonoBehaviour
             var ai = GameManager.Instance != null ? GameManager.Instance.ai : null;
             if (ai != null && ai.Trash != null)
             {
-                Debug.Log("넥스트로 이동");
+                //안개 생성
+                GameManager.Instance.ui.trashClean(true);
+
+
                 GameManager.Instance.ui.SetGuide(UIManager.Guidestate.NextContiune);
-                Destroy(ai.Trash);
+
+
+                var trashGO = ai.Trash;  // 로컬 보관
+                ai.Trash = null;         // 중복 방지
+                StartCoroutine(BumpYThenDestroy(trashGO, 0.5f, 0.12f, 0.18f));
+
+
                 ai.Trash = null; // 참조도 정리
                 var chair = ai.Chair;
                 chair.transform.eulerAngles = new Vector3(
@@ -599,10 +634,6 @@ public class PlayerObjectController : MonoBehaviour
                     chair.transform.eulerAngles.y - 45f,
                     chair.transform.eulerAngles.z
                 );
-            }
-            else
-            {
-                Debug.LogWarning("[AIObjectController] ai.Trash 가 없거나 이미 제거되었습니다.");
             }
         }
     }
