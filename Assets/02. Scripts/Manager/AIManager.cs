@@ -29,9 +29,6 @@ public class AIManager : MonoBehaviour
     public int hallStateNum = 0;
     public int AiNum = 0;
 
-    private int MaxAiMum = 7;
-    private int MaxPickStateNum = 3;
-    private int MaxhallStateNum = 0;
 
     private float timer;
 

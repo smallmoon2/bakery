@@ -4,6 +4,10 @@ using UnityEngine;
 
 public class UIManager : MonoBehaviour
 {
+    public enum UiState { Bread, Pay, Table, EmojiSmileUI }
+
+
+
     // Start is called before the first frame update
     void Start()
     {

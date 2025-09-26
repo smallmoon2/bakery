@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using Unity.Burst.Intrinsics;
 using UnityEngine;
 using UnityEngine.AI;
@@ -55,6 +56,13 @@ public class AIController : MonoBehaviour
     public Transform tableLook;
     public Transform exitLook;   // Exit용
     public Transform exit2Look;  // ★ Exit2 전용
+
+    [Header("UI Controller")]
+    [SerializeField] private GameObject breadUI;
+    [SerializeField] private GameObject emojiSmileUI;
+    [SerializeField] private GameObject payUI;
+    [SerializeField] private GameObject tableUI;
+    [SerializeField] private TextMeshProUGUI breadCountText;
 
     [Header("Durations (sec)")]
     public float pickTime = 1.0f;
@@ -116,7 +124,11 @@ public class AIController : MonoBehaviour
                     var p = GetPoint(pickPoints, pickIdx);
                     MoveViaPreThen(pre, p);
                     if (!prePhase && Arrived()) FaceThenWaitNext(pickLook ?? p, pickTime, State.Pack);
-
+                    Debug.Log(readyForNext);
+                    if (readyForNext)
+                    {
+                        ShowOnly(breadUI);
+                    }
                     if (aIObjectController.PickupFinish)
                     {
                         var pickList = GameManager.Instance.ai.Pick;
@@ -468,6 +480,22 @@ public class AIController : MonoBehaviour
         {
             // Eat 트리거 밟으면 Table 단계에서 목표를 EatPoint로 강제
             goToEatPoint = true;
+        }
+    }
+    public void ShowOnly(GameObject target)
+    {
+        // 1) 네 개를 배열로 묶고
+        GameObject[] items = new GameObject[] { breadUI, emojiSmileUI, payUI, tableUI };
+
+        // 2) 하나씩 꺼내서
+        for (int i = 0; i < items.Length; i++)
+        {
+            GameObject go = items[i];
+            if (go == null) continue;      // null 이면 건너뜀
+
+            // 3) target이면 켜고, 아니면 끈다
+            bool shouldShow = (go == target);
+            go.SetActive(shouldShow);
         }
     }
 }
