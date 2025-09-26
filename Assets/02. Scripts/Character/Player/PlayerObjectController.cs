@@ -593,7 +593,11 @@ public class PlayerObjectController : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
-        if (other.CompareTag(pickUpTag)) canStack = false;
+        if (other.CompareTag(pickUpTag))
+        {
+            GameManager.Instance.ui.SetGuide(UIManager.Guidestate.Basket);
+            canStack = false;
+        }
         if (other.CompareTag(dropOffTag)) canDrop = false;
 
         if (other.CompareTag(moneyTag)) canMoney = false; // "Money"
