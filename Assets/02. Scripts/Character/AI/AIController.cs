@@ -85,6 +85,7 @@ public class AIController : MonoBehaviour
     private State _lastState; // 외부에서 state 직접 변경 감지용
     public int breadCount;
     private bool exit2MoneySpawned = false;
+    private bool hasExecuted = false;
 
     // 도착+바라봄+대기 완료 신호
     public bool readyForNext { get; private set; }
@@ -141,12 +142,12 @@ public class AIController : MonoBehaviour
 
                         if (isHall)
                         {
-                            GameManager.Instance.ai.AddToList(this, AIManager.ListState.Hall);
+                            //GameManager.Instance.ai.AddToList(this, AIManager.ListState.Hall);
                             state = State.Hall;
                         }
                         else
                         {
-                            GameManager.Instance.ai.AddToList(this, AIManager.ListState.Pack);
+                            //GameManager.Instance.ai.AddToList(this, AIManager.ListState.Pack);
                             state = State.Pack;
                         }
                     }
@@ -159,6 +160,12 @@ public class AIController : MonoBehaviour
                     var pre = GetPrePoint(State.Pack);
                     var p = GetPoint(packPoints, packIdx);
                     MoveViaPreThen(pre, p);
+
+                    if (!prePhase)
+                    {
+                        PayLine(AIManager.ListState.Pack);
+                    }
+
                     if (!prePhase && Arrived()) FaceThenWaitNext(packLook ?? p, packTime, State.Table);
 
                     if (aIObjectController.BagFinish)
@@ -177,7 +184,10 @@ public class AIController : MonoBehaviour
                     MoveViaPreThen(pre, p);
                     if (!prePhase && Arrived()) FaceThenWaitNext(hallLook ?? p, packTime, State.Table);
 
-
+                    if (!prePhase)
+                    {
+                        PayLine(AIManager.ListState.Hall);
+                    }
                     if (readyForNext && aIObjectController.BagFinish)
                     {
                         ShowOnly(tableUI);
@@ -318,6 +328,8 @@ public class AIController : MonoBehaviour
     {
         if (prePhase && pre != null)
         {
+
+
             MoveTo(pre);
             if (Arrived())
             {
@@ -540,4 +552,14 @@ public class AIController : MonoBehaviour
             go.SetActive(shouldShow);
         }
     }
+
+    public void PayLine(AIManager.ListState state)
+    {
+        if (hasExecuted) return; // 이미 실행했으면 무시
+
+        hasExecuted = true;
+        GameManager.Instance.ai.AddToList(this, state);
+        GameManager.Instance.ai.AddToList(this, state);
+    }
+
 }

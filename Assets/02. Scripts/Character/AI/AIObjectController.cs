@@ -138,7 +138,7 @@ public class AIObjectController : MonoBehaviour
         // 모두 집었으면 약간 대기 후 완료
         if (stacking.Count == aiController.breadCount && !isPicking)
         {
-            StartCoroutine(SetPickupFinishWithDelay(0.5f));
+            StartCoroutine(SetPickupFinishWithDelay(0.00f));
         }
     }
 

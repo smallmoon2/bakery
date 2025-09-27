@@ -7,6 +7,8 @@ public class OpenLock : MonoBehaviour
 {
     public GameObject lockPrefab;
     public GameObject unlockPrefab;
+    public GameObject unlockLevel;
+    public GameObject unlockLevel2;
     public TextMeshPro lockCounttext;
 
     public void decreaseLockCount()
@@ -31,6 +33,8 @@ public class OpenLock : MonoBehaviour
         GameManager.Instance.ui.SetGuideActive(false);
         GameManager.Instance.ai.isHallOpen = true;
         unlockPrefab.SetActive(true);
+        unlockLevel.SetActive(true);
+        unlockLevel2.SetActive(true);
         lockPrefab.SetActive(false);
         
     }
