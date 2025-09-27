@@ -6,70 +6,96 @@ public class BreadSpawner : MonoBehaviour
 {
     [Header("Prefab & Spawn")]
     [SerializeField] private GameObject breadPrefab;
-    [SerializeField] private Transform spawnPoint;      // 비워두면 this.transform 사용
-    [SerializeField] private float spawnInterval = 1f;  // 1초마다
-    [SerializeField] private float launchSpeed = 5f;    // 발사 속도
-    [SerializeField] private int maxBreadCount = 8;     // 8개까지
+    [SerializeField] private Transform spawnPoint;
+    [SerializeField] private float spawnInterval = 1f;
+    [SerializeField] private float launchDelay = 0.5f;    // 발사 전 대기
+    [SerializeField] private float launchSpeed = 5f;
+    [SerializeField] private int maxBreadCount = 8;
 
     public List<GameObject> breads = new List<GameObject>();
 
-    private Coroutine spawnRoutine;
-    private bool isSpawning;
+    Coroutine spawnRoutine;
+    bool isSpawning;
 
-    private void Awake()
+    // 발사 대기 중(아직 리스트에 안 넣은) 개수
+    int pendingCount = 0;
+
+    void Awake()
     {
-        if (spawnPoint == null) spawnPoint = transform;
+        if (!spawnPoint) spawnPoint = transform;
     }
 
-    private void OnDisable()
+    void OnDisable()
     {
-        if (spawnRoutine != null) StopCoroutine(spawnRoutine);
+        StopAllCoroutines();
         spawnRoutine = null;
         isSpawning = false;
+        pendingCount = 0;
     }
 
-    private void Update()
+    void Update()
     {
-        // (선택) 유령 참조 청소
         breads.RemoveAll(b => b == null);
 
-        // 현재 개수가 한도 미만이고, 코루틴이 돌고 있지 않으면 시작
-        if (!isSpawning && breads.Count < maxBreadCount)
-        {
+        // ▶ 리스트 + 대기 중 합계를 기준으로 상한 체크
+        if (!isSpawning && (breads.Count + pendingCount) < maxBreadCount)
             spawnRoutine = StartCoroutine(SpawnLoop());
-        }
     }
 
-    private IEnumerator SpawnLoop()
+    IEnumerator SpawnLoop()
     {
         isSpawning = true;
 
-        while (true)
+        while ((breads.Count + pendingCount) < maxBreadCount)
         {
-            // 매 주기마다 최신 상태 확인
-            breads.RemoveAll(b => b == null);
-
-            if (breads.Count >= maxBreadCount)
-                break;
-
             SpawnOne();
-
             yield return new WaitForSeconds(spawnInterval);
         }
 
-        // 코루틴 종료 시 상태 정리
         isSpawning = false;
         spawnRoutine = null;
     }
 
-    private void SpawnOne()
+    void SpawnOne()
     {
         var go = Instantiate(breadPrefab, spawnPoint.position, spawnPoint.rotation);
-        breads.Add(go);
+
+        // 발사 방향 캡처
+        Vector3 dir = spawnPoint.forward.normalized;
 
         if (go.TryGetComponent<Rigidbody>(out var rb))
         {
-            rb.AddForce(spawnPoint.forward.normalized * launchSpeed, ForceMode.VelocityChange);
+            // 스폰 직후엔 중력 OFF, 정지
+            rb.useGravity = false;
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+
+            // 아직 리스트에 넣지 않음 → 대기 카운트 증가
+            pendingCount++;
+            StartCoroutine(LaunchAfterDelay(go, rb, dir));
         }
+        else
+        {
+            // Rigidbody가 없으면 즉시 리스트에 추가(선택)
+            breads.Add(go);
+        }
+    }
+
+    IEnumerator LaunchAfterDelay(GameObject obj, Rigidbody rb, Vector3 dir)
+    {
+        yield return new WaitForSeconds(launchDelay);
+
+        if (obj != null && rb != null)
+        {
+            // 발사 순간: 중력 ON → 힘 가하기
+            rb.useGravity = true;
+            rb.AddForce(dir * launchSpeed, ForceMode.VelocityChange);
+
+            // ▶ 이제서야 리스트에 등록
+            breads.Add(obj);
+        }
+
+        // 대기 카운트 감소(성공/실패 모두에서)
+        pendingCount = Mathf.Max(0, pendingCount - 1);
     }
 }

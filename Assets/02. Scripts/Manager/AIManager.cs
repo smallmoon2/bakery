@@ -50,6 +50,8 @@ public class AIManager : MonoBehaviour
 
     public void Moneycreate(Transform spawnRoot, int amount, int listIndex = 1)
     {
+        GameManager.Instance.sound.PlayByKey("Cost_Money");
+        
         if (moneyPrefab == null) { Debug.LogWarning("moneyPrefab 미할당"); return; }
         if (spawnRoot == null) { spawnRoot = TableMoneyPoint; }
         if (spawnRoot == null) { Debug.LogWarning("spawnRoot/TableMoneyPoint 없음"); return; }
@@ -104,6 +106,7 @@ public class AIManager : MonoBehaviour
             money.transform.SetParent(spawnRoot, true); // 부모 스케일 영향 최소화
 
             list.Add(money);
+            GameManager.Instance.sound.PlayByKey("cash");
         }
     }
 

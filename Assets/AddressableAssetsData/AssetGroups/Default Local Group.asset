@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Default Local Group
+  m_EditorClassIdentifier: 
+  m_GroupName: Default Local Group
+  m_Data:
+    m_SerializedData: []
+  m_GUID: 81b246e05e7046c4b9e78f277b32f903
+  m_SerializeEntries:
+  - m_GUID: aa16135307c473646976e6910dac9efa
+    m_Address: Assets/99. Resources/Practice/SFX/cash.wav
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Sound
+  - m_GUID: 5e980ad86d045462d8f203d5f5aaa2c8
+    m_Address: Assets/99. Resources/Practice/SFX/Cost_Money.wav
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Sound
+  - m_GUID: 0308d7276b721664f8c895d481b4dd36
+    m_Address: Assets/99. Resources/Practice/SFX/Get_Object.wav
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Sound
+  - m_GUID: 11dd779bf61fdf140ab2facc0d55d332
+    m_Address: Assets/99. Resources/Practice/SFX/Put_Object.wav
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Sound
+  - m_GUID: c499eb7e32ca74942a7f8c8a0e6ee576
+    m_Address: Assets/99. Resources/Practice/SFX/Success.wav
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Sound
+  - m_GUID: 627dee161e3edc241b051ca90c663a68
+    m_Address: Assets/99. Resources/Practice/SFX/trash.mp3
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Sound
+  - m_GUID: d308ce18bdc52b940ae07448a6d15adc
+    m_Address: Assets/99. Resources/Practice/SFX/Get_Money.wav
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Sound
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 56186ac7e2583174aa53690ab8c93824, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 5fba72888cd19b14e9e8dc9ab25d91de, type: 2}
+    - {fileID: 11400000, guid: 655e963485896ce4195d8f3d8a76a440, type: 2}

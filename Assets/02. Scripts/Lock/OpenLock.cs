@@ -24,6 +24,8 @@ public class OpenLock : MonoBehaviour
     }
     public void Open()
     {
+        GameManager.Instance.sound.PlayByKey("Success");
+
         GameManager.Instance.ActivateNextCam();
 
         GameManager.Instance.ui.SetGuideActive(false);

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+using TMPro;
 using UnityEngine;
 
 public class PlayerObjectController : MonoBehaviour
@@ -28,6 +29,7 @@ public class PlayerObjectController : MonoBehaviour
     [SerializeField] private BreadSpawner spawner;     // 오븐에서 꺼낼 빵 소스
     [SerializeField] public Transform stackPoint;      // 손에 쌓일 기준점
     [SerializeField] private string pickUpTag = "Oven";
+    [SerializeField] private GameObject maxText;
 
     // ===================== BASKET (Bread Drop) =====================
     [Header("Basket")]
@@ -73,6 +75,7 @@ public class PlayerObjectController : MonoBehaviour
 
     private void Update()
     {
+
         // 빵 픽업
         if (canStack && Time.time >= nextMove && stacking.Count < maxStack && !isPicking)
         {
@@ -90,6 +93,7 @@ public class PlayerObjectController : MonoBehaviour
         // 돈(Money) 픽업: 0.05초 간격으로 병렬 시작 (canMoney인 동안 유지)
         if (canMoney && !isMoneyBurstRunning)
         {
+            
             StartCoroutine(MoneyBurstRoutine());
         }
 
@@ -130,6 +134,13 @@ public class PlayerObjectController : MonoBehaviour
         if (!picked) return;
 
         int slotIndex = stacking.Count;
+        GameManager.Instance.sound.PlayByKey("Get_Object");
+
+        if(slotIndex == 7)
+        {
+            maxText.SetActive(true);
+        }
+
         StartCoroutine(PickupOneRoutine(picked, slotIndex));
     }
 
@@ -207,6 +218,13 @@ public class PlayerObjectController : MonoBehaviour
         var slotT = slots[nextIndex];
         if (!slotT) return;
 
+        GameManager.Instance.sound.PlayByKey("Put_Object");
+
+        if (stacking.Count < 8)
+        {
+            maxText.SetActive(false);
+        }
+
         StartCoroutine(DropOneRoutine(bread, slotT, nextIndex));
     }
 
@@ -283,7 +301,10 @@ public class PlayerObjectController : MonoBehaviour
 
         while (canMoney) // Money 존 안에 있는 동안만
         {
+
             if (list == null || list.Count == 0) break;
+
+            GameManager.Instance.sound.PlayByKey("Get_Money");
 
             // 리스트 끝에서부터 pop (null 건너뛰기)
             GameObject target = null;
@@ -384,6 +405,8 @@ public class PlayerObjectController : MonoBehaviour
         while (canMoney2) // Money2 존 안에 있는 동안만
         {
             if (list == null || list.Count == 0) break;
+
+            GameManager.Instance.sound.PlayByKey("Get_Money");
 
             GameObject target = null;
             for (int i = list.Count - 1; i >= 0; i--)
@@ -618,6 +641,7 @@ public class PlayerObjectController : MonoBehaviour
                 //안개 생성
                 GameManager.Instance.ui.trashClean(true);
 
+                GameManager.Instance.sound.PlayByKey("trash",0.5f,".mp3");
 
                 GameManager.Instance.ui.SetGuide(UIManager.Guidestate.NextContiune);
 

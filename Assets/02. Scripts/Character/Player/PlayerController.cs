@@ -3,100 +3,96 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     [Header("Input")]
-    private VariableJoystick joystick; // Joystick Pack
+    [SerializeField] private VariableJoystick joystick;    // 인스펙터에 연결 권장
     private PlayerObjectController playerObjectController;
+
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 3.5f;
     [SerializeField] private float turnSpeed = 15f;
 
     private Animator anim;
     private CharacterController cc;
-
-    // 회전/이동 공용 입력 벡터 (월드 기준 XZ)
     private Vector3 moveInput;
 
-    private void Awake()
+    void Awake()
     {
         init();
-
     }
-    
+
     void init()
     {
         playerObjectController = FindObjectOfType<PlayerObjectController>();
-        joystick = FindObjectOfType<VariableJoystick>();
+        if (!joystick) joystick = FindObjectOfType<VariableJoystick>(true); // 비활성 포함 탐색
         anim = GetComponentInChildren<Animator>(true);
         cc = GetComponent<CharacterController>();
     }
 
-    private void Update()
+    void Update()
     {
+        if (!cc) cc = GetComponent<CharacterController>();
+        if (!joystick) joystick = FindObjectOfType<VariableJoystick>(true);
+
+        if (Mathf.Approximately(Time.timeScale, 0f))
+        {
+            // 필요하면 일시적으로 풀고 테스트: Time.timeScale = 1f;
+            Debug.LogWarning("[Player] Time.timeScale==0 이라 이동이 0입니다.");
+        }
+
         ReadInput();
         Move();
         Turn();
         UpdateAnimator();
-
-
     }
 
-    private void ReadInput()
+    void ReadInput()
     {
-        float h = joystick ? joystick.Horizontal : 0f;
-        float v = joystick ? joystick.Vertical : 0f;
+        // 조이스틱 + 키보드(백업) 합산
+        float h = (joystick ? joystick.Horizontal : 0f) + Input.GetAxisRaw("Horizontal");
+        float v = (joystick ? joystick.Vertical : 0f) + Input.GetAxisRaw("Vertical");
 
         moveInput = new Vector3(h, 0f, v);
         moveInput = Vector3.ClampMagnitude(moveInput, 1f);
     }
 
-    private void Move()
+    void Move()
     {
-        Vector3 horizontal = moveInput.normalized * moveSpeed;
+        Vector3 horizontal = moveInput * moveSpeed;
         cc.Move(horizontal * Time.deltaTime);
     }
 
-    // 요청하신 형태로 교체
-    private void Turn()
+    void Turn()
     {
-        if (moveInput != Vector3.zero)
+        if (moveInput.sqrMagnitude > 0.0001f)
         {
             Quaternion targetRot = Quaternion.LookRotation(moveInput);
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation, targetRot, turnSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
         }
     }
 
-    private void UpdateAnimator()
+    void UpdateAnimator()
     {
-        float targetValue = 0f;
+        float targetValue = moveInput.sqrMagnitude > 0.001f ? 1f : 0f;
 
-        if (moveInput != Vector3.zero) // 이동 키를 누를 경우
-        {
-            targetValue = 1;
-        }
-
-        float animValue = anim.GetFloat("Move");
+        float animValue = anim ? anim.GetFloat("Move") : 0f;
         animValue = Mathf.Lerp(animValue, targetValue, 10f * Time.deltaTime);
-        anim.SetFloat("Move", animValue);
+        if (anim) anim.SetFloat("Move", animValue);
 
-        bool hasStack = playerObjectController.stackPoint && playerObjectController.stackPoint.childCount > 0;
-        anim.SetBool("Stack", hasStack);
-
+        if (anim && playerObjectController)
+        {
+            bool hasStack = playerObjectController.stackPoint && playerObjectController.stackPoint.childCount > 0;
+            anim.SetBool("Stack", hasStack);
+        }
     }
 
-    private void OnTriggerEnter(Collider other)
+    void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("PlayerTable"))
-        {
             GameManager.Instance.ai.isCalculated = true;
-        }
     }
 
-    private void OnTriggerExit(Collider other)
+    void OnTriggerExit(Collider other)
     {
         if (other.CompareTag("PlayerTable"))
-        {
             GameManager.Instance.ai.isCalculated = false;
-        }
     }
-
 }

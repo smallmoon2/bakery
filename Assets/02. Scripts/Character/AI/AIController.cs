@@ -244,7 +244,6 @@ public class AIController : MonoBehaviour
                     if (!exit2MoneySpawned)
                     {
                         exit2MoneySpawned = true;
-                        Debug.Log("머니호출2 (once)");
                         var gm = GameManager.Instance;
                         if (gm != null && gm.ai != null && gm.ai.tableMoneySpawn2 != null)
                         {

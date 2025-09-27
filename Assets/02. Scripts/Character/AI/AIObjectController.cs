@@ -152,6 +152,7 @@ public class AIObjectController : MonoBehaviour
         if (!picked) return;
 
         int slotIndex = stacking.Count;
+        GameManager.Instance.sound.PlayByKey("Get_Object");
         StartCoroutine(PickupOneRoutine(picked, slotIndex));
     }
 
