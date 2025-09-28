@@ -3,12 +3,8 @@ using UnityEngine;
 [ExecuteAlways]
 public class AIUIController : MonoBehaviour
 {
-    [Tooltip("비우면 부모를 자동 사용")]
     public Transform target;
-
-    [Tooltip("OnEnable 시 현재 회전을 고정한다")]
     public bool autoCaptureOnEnable = true;
-
     [SerializeField] private Vector3 lockedEuler; // 표시용
     private Quaternion lockedRot;
 

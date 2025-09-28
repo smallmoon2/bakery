@@ -62,7 +62,6 @@ public class AIObjectController : MonoBehaviour
     private bool isPicking = false;
     private bool isDropping = false;
     private bool moneyCreated = false;
-
     private float nextMove = 0f;
 
     // 외부에서 보는 플래그
