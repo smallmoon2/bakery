@@ -651,8 +651,9 @@ public class PlayerObjectController : MonoBehaviour
                 //안개 생성
                 GameManager.Instance.ui.trashClean(true);
 
-                GameManager.Instance.sound.PlayByKey("trash",0.5f,".mp3");
+              
 
+                GameManager.Instance.sound.PlayByKey("trashclean");
                 GameManager.Instance.ui.SetGuide(UIManager.Guidestate.NextContiune);
 
 

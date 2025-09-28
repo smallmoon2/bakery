@@ -52,6 +52,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels:
     - Sound
+  - m_GUID: c7f192b799a136d40a57247ca596906c
+    m_Address: Assets/99. Resources/Practice/SFX/trashclean.wav
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Sound
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 56186ac7e2583174aa53690ab8c93824, type: 2}
   m_SchemaSet:

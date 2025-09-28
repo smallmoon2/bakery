@@ -1,4 +1,5 @@
 
+using System.Collections;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -29,4 +30,19 @@ public class SoundManager : MonoBehaviour
             Addressables.Release(h);
         };
     }
+
+    public void SuccessSound()
+    {
+        StartCoroutine(OpenSound());
+    }
+
+    private IEnumerator OpenSound()
+    {
+        GameManager.Instance.sound.PlayByKey("trash", 0.5f, ".mp3");
+
+        yield return new WaitForSeconds(0.5f);
+        Debug.Log("Success ½ÇÇà");
+        GameManager.Instance.sound.PlayByKey("Success");
+    }
+
 }

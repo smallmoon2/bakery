@@ -29,7 +29,7 @@ public class OpenLock : MonoBehaviour
     }
     public void Open()
     {
-        GameManager.Instance.sound.PlayByKey("Success");
+        GameManager.Instance.sound.SuccessSound();
 
         GameManager.Instance.ActivateNextCam();
 
@@ -56,4 +56,5 @@ public class OpenLock : MonoBehaviour
             lockPrefab.SetActive(false);
         }
     }
+
 }
