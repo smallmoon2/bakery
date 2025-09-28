@@ -41,7 +41,7 @@ public class SoundManager : MonoBehaviour
         GameManager.Instance.sound.PlayByKey("trash", 0.5f, ".mp3");
 
         yield return new WaitForSeconds(0.5f);
-        Debug.Log("Success ½ÇÇà");
+
         GameManager.Instance.sound.PlayByKey("Success");
     }
 
