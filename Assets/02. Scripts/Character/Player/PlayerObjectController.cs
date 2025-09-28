@@ -539,6 +539,16 @@ public class PlayerObjectController : MonoBehaviour
         var t = money.transform;
         const float EPS = 0.0001f;
 
+        if (openLock.MovePoint != null)
+        {
+            MoneyUsePoint = openLock.PreMovePoint;
+        }
+
+        if (openLock.PreMovePoint != null)
+        {
+            preMoneyUsePoint = openLock.PreMovePoint;
+        }
+
         if (!MoneyUsePoint)
         {
             Debug.LogWarning("[PlayerObjectController] MoneyUsePoint ¹ÌÇÒ´ç");

@@ -5,6 +5,9 @@ using UnityEngine;
 
 public class OpenLock : MonoBehaviour
 {
+    public Transform MovePoint;
+    public Transform PreMovePoint;
+
     public GameObject lockPrefab;
     public GameObject unlockPrefab;
     public GameObject unlockLevel;
@@ -32,10 +35,25 @@ public class OpenLock : MonoBehaviour
 
         GameManager.Instance.ui.SetGuideActive(false);
         GameManager.Instance.ai.isHallOpen = true;
-        unlockPrefab.SetActive(true);
-        unlockLevel.SetActive(true);
-        unlockLevel2.SetActive(true);
-        lockPrefab.SetActive(false);
-        
+
+        if (unlockPrefab)
+        {
+            unlockPrefab.SetActive(true);
+        }
+
+        if (unlockLevel)
+        {
+            unlockLevel.SetActive(true);
+        }
+
+        if (unlockLevel2)
+        {
+            unlockLevel2.SetActive(true);
+        }
+
+        if (lockPrefab)
+        {
+            lockPrefab.SetActive(false);
+        }
     }
 }
