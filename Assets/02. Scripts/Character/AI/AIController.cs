@@ -85,11 +85,32 @@ public class AIController : MonoBehaviour
     private State _lastState; // 외부에서 state 직접 변경 감지용
     public int breadCount;
     private bool exit2MoneySpawned = false;
-    private bool hasExecuted = false;
 
     // 도착+바라봄+대기 완료 신호
     public bool readyForNext { get; private set; }
     public void ClearReady() => readyForNext = false;
+
+    // ====== 처음 3개만 고정 시나리오, 이후 랜덤 ======
+    [System.Serializable]
+    private struct SpawnScenario
+    {
+        public int bread;      // breadCount
+        public bool isHall;    // isHall
+        public int pickIdx;    // pickIdx
+    }
+
+    // 3 false 1 / 2 false 0 / 1 true 2
+    private static readonly SpawnScenario[] SCENARIOS = new SpawnScenario[]
+    {
+        new SpawnScenario { bread = 3, isHall = false, pickIdx = 1 },
+        new SpawnScenario { bread = 2, isHall = false, pickIdx = 0 },
+        new SpawnScenario { bread = 1, isHall = true,  pickIdx = 2 },
+    };
+
+    private static int s_scenarioCursor = 0;
+
+    // AddToList 1회만 보장
+    private bool hasExecuted = false;
 
     void Reset()
     {
@@ -101,19 +122,17 @@ public class AIController : MonoBehaviour
     {
         Reset();
 
-        breadCount = Random.Range(1, 4);
+        // 시나리오 or 랜덤 초기화
+        InitScenarioOrRandom();
 
-        ClaimPickSlot();
-        isHall = Random.value < 0.35f;
-
-        Debug.Log(isHall);
         Go(State.Pick);
         _lastState = state; // 초기 상태 동기화
     }
 
     void Update()
     {
-        breadCountText.text = (breadCount - aIObjectController.stacking.Count).ToString(); 
+        if (breadCountText)
+            breadCountText.text = (breadCount - aIObjectController.stacking.Count).ToString();
 
         // 외부에서 state를 직접 바꿨을 때도 항상 진입 처리(+ ready 플래그 리셋)
         if (state != _lastState)
@@ -131,25 +150,14 @@ public class AIController : MonoBehaviour
                     MoveViaPreThen(pre, p);
                     if (!prePhase && Arrived()) FaceThenWaitNext(pickLook ?? p, pickTime, State.Pack);
 
-                    if (readyForNext)
-                    {
-                        ShowOnly(breadUI);
-                    }
+                    if (readyForNext) ShowOnly(breadUI);
+
                     if (aIObjectController.PickupFinish)
                     {
                         var pickList = GameManager.Instance.ai.Pick;
                         pickList[pickIdx] = false;
 
-                        if (isHall)
-                        {
-                            //GameManager.Instance.ai.AddToList(this, AIManager.ListState.Hall);
-                            state = State.Hall;
-                        }
-                        else
-                        {
-                            //GameManager.Instance.ai.AddToList(this, AIManager.ListState.Pack);
-                            state = State.Pack;
-                        }
+                        state = isHall ? State.Hall : State.Pack;
                     }
                     break;
                 }
@@ -197,7 +205,6 @@ public class AIController : MonoBehaviour
                     if (aIObjectController.BagFinish && GameManager.Instance.ai.isHallOpen && GameManager.Instance.ai.isTableempty && GameManager.Instance.ai.Trash == null)
                     {
                         ShowOnly(oFFUI);
-
                         GameManager.Instance.ai.RemoveFromList(this, AIManager.ListState.Hall);
                         state = State.Table;
                         GameManager.Instance.ai.isTableempty = false;
@@ -279,17 +286,19 @@ public class AIController : MonoBehaviour
                     }
                     break;
                 }
-
         }
 
         // 이동 애니메이션 보간
-        float animValue = anim.GetFloat("Move");
-        animValue = Mathf.Lerp(animValue, targetMoveParam, 10f * Time.deltaTime);
-        anim.SetFloat("Move", animValue);
+        if (anim)
+        {
+            float animValue = anim.GetFloat("Move");
+            animValue = Mathf.Lerp(animValue, targetMoveParam, 10f * Time.deltaTime);
+            anim.SetFloat("Move", animValue);
 
-        // HandStackPoint 상태에 따른 Stack Bool 제어
-        bool hasStack = handStackPoint && handStackPoint.childCount > 0;
-        anim.SetBool("Stack", hasStack);
+            // HandStackPoint 상태에 따른 Stack Bool 제어
+            bool hasStack = handStackPoint && handStackPoint.childCount > 0;
+            anim.SetBool("Stack", hasStack);
+        }
     }
 
     // ---- 상태 변경 공용 진입 ----
@@ -328,8 +337,6 @@ public class AIController : MonoBehaviour
     {
         if (prePhase && pre != null)
         {
-
-
             MoveTo(pre);
             if (Arrived())
             {
@@ -443,7 +450,8 @@ public class AIController : MonoBehaviour
 
     private void ClaimPickSlot()
     {
-        // GameManager/AIManager 존재/리스트 유효성 체크
+
+
         if (GameManager.Instance == null || GameManager.Instance.ai == null)
         {
             Debug.LogWarning("[AIController] GameManager.Instance.ai 없음");
@@ -484,6 +492,7 @@ public class AIController : MonoBehaviour
             pickIdx = Mathf.Clamp(pickIdx, 0, (pickPoints?.Length ?? 1) - 1);
             Debug.LogWarning("[AIController] 빈 Pick 슬롯이 없어 기본 인덱스로 시작합니다. pickIdx=" + pickIdx);
         }
+
     }
 
     private IEnumerator EatingLogic()
@@ -536,18 +545,15 @@ public class AIController : MonoBehaviour
             goToEatPoint = true;
         }
     }
+
     public void ShowOnly(GameObject target)
     {
-        // 1) 네 개를 배열로 묶고
         GameObject[] items = new GameObject[] { breadUI, emojiSmileUI, payUI, tableUI, oFFUI };
 
-        // 2) 하나씩 꺼내서
         for (int i = 0; i < items.Length; i++)
         {
             GameObject go = items[i];
-            if (go == null) continue;      // null 이면 건너뜀
-
-            // 3) target이면 켜고, 아니면 끈다
+            if (go == null) continue;
             bool shouldShow = (go == target);
             go.SetActive(shouldShow);
         }
@@ -556,10 +562,70 @@ public class AIController : MonoBehaviour
     public void PayLine(AIManager.ListState state)
     {
         if (hasExecuted) return; // 이미 실행했으면 무시
-
         hasExecuted = true;
-        GameManager.Instance.ai.AddToList(this, state);
-        GameManager.Instance.ai.AddToList(this, state);
+
+        GameManager.Instance.ai.AddToList(this, state); // 1회만
+        // (중복 추가 방지: 두 번 호출하지 않음)
     }
 
+    // ====== 초기화: 처음 3개는 시나리오, 이후 랜덤 ======
+    private void InitScenarioOrRandom()
+    {
+        if (s_scenarioCursor < SCENARIOS.Length)
+        {
+            var s = SCENARIOS[s_scenarioCursor++];
+            breadCount = Mathf.Max(0, s.bread);
+            isHall = s.isHall;
+
+            if (GameManager.Instance != null && GameManager.Instance.ai != null)
+            {
+                var pickList = GameManager.Instance.ai.Pick;
+                if (pickList != null)
+                {
+                    EnsureListSize(pickList, pickPoints != null ? pickPoints.Length : pickList.Count);
+
+                    pickIdx = Mathf.Clamp(s.pickIdx, 0, (pickPoints?.Length ?? 1) - 1);
+
+                    if (!pickList[pickIdx])
+                    {
+                        pickList[pickIdx] = true; // 슬롯 점유
+                    }
+                    else
+                    {
+                        // 이미 점유돼 있으면 첫 번째 비어있는 슬롯으로 이동
+                        int free = -1;
+                        for (int i = 0; i < pickList.Count; i++)
+                        {
+                            if (!pickList[i]) { free = i; break; }
+                        }
+                        if (free >= 0)
+                        {
+                            pickIdx = free;
+                            pickList[free] = true;
+                        }
+                        else
+                        {
+                            // 전부 찼으면 기존 로직으로 안전하게 배정
+                            ClaimPickSlot();
+                        }
+                    }
+                }
+                else
+                {
+                    pickIdx = Mathf.Clamp(s.pickIdx, 0, (pickPoints?.Length ?? 1) - 1);
+                }
+            }
+            else
+            {
+                pickIdx = Mathf.Clamp(s.pickIdx, 0, (pickPoints?.Length ?? 1) - 1);
+            }
+        }
+        else
+        {
+            // 그 이후는 랜덤
+            breadCount = Random.Range(1, 4);
+            isHall = Random.value < 0.35f;
+            ClaimPickSlot(); // 기존 슬롯 배정 로직 사용
+        }
+    }
 }
